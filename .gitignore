@@ -1,0 +1,47 @@
+# ---- Python ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# ---- Downloaded tools & models (several GB, fetched by scripts/setup_whisper.ps1) ----
+tools/
+
+# ---- User data: downloaded stream parts, renders, personal settings ----
+work/
+output/
+config.json
+presets.json
+
+# ---- Fonts: proprietary fonts must not be redistributed ----
+# (the app copies Arial Black from C:\Windows\Fonts on first start)
+assets/fonts/*
+!assets/fonts/README.md
+
+# ---- Media that may contain third-party content ----
+*.mp4
+*.mkv
+*.webm
+*.ts
+*.wav
+*.mp3
+*.m4a
+*.part
+*.ytdl
+
+# ---- Editors / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Local Claude Code settings ----
+.claude/settings.local.json
