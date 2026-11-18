@@ -1,4 +1,4 @@
-# Kick → TikTok Clip
+# ClipToShort
 
 A fully **local** tool that turns Kick stream recordings (VODs) into vertical **1080×1920**
 TikTok/Reels/Shorts clips: streamer camera on top, gameplay below, and automatic (offline) captions on
@@ -33,8 +33,8 @@ language detection are also available.
 ## Installation
 
 ```bat
-git clone <this-repo>
-cd tiktok-video-maker
+git clone https://github.com/mustafa-cetin/ClipToShort.git
+cd ClipToShort
 powershell -ExecutionPolicy Bypass -File scripts\setup_whisper.ps1
 start.bat
 ```
@@ -136,4 +136,4 @@ for getting the streamers' permission. Ask for permission before sharing someone
 
 ## License
 
-[MIT](LICENSE) © 2026 tiktok-video-maker contributors
+[MIT](LICENSE) © 2026 ClipToShort contributors

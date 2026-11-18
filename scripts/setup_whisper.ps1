@@ -15,7 +15,7 @@ New-Item -ItemType Directory -Force (Join-Path $wdir "models") | Out-Null
 
 Write-Host "Fetching whisper.cpp release info..."
 # Tagged releases (v1.x) may have no binaries; prebuilt zips live on "bNNNN" build releases.
-$releases = Invoke-RestMethod "https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=30" -Headers @{ "User-Agent" = "tiktok-video-maker" }
+$releases = Invoke-RestMethod "https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=30" -Headers @{ "User-Agent" = "ClipToShort" }
 $rel = $releases | Where-Object { $_.assets | Where-Object { $_.name -match '^whisper-bin-x64\.zip$' } } | Select-Object -First 1
 if (-not $rel) { throw "No whisper.cpp release with a Windows package was found." }
 Write-Host "Release: $($rel.tag_name)"

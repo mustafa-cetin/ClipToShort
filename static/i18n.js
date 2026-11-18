@@ -4,7 +4,7 @@
 // data-i18n-placeholder; app.js calls T(key, params). Server messages follow the X-Lang header.
 const I18N = {
   en: {
-    "app.title": "Kick → TikTok Clip",
+    "app.title": "ClipToShort",
     "ui.langTitle": "Interface language",
     // 1 · download
     "s1.title": "1 · Download a source from a stream",
@@ -159,7 +159,7 @@ const I18N = {
     "server.unreachable": "Could not connect to the server",
   },
   tr: {
-    "app.title": "Kick → TikTok Klip",
+    "app.title": "ClipToShort",
     "ui.langTitle": "Arayüz dili",
     "s1.title": "1 · Yayından kaynak indir",
     "dl.urlPlaceholder": "https://kick.com/kanal/videos/…",
