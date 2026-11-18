@@ -303,3 +303,51 @@ def test_filtergraph_custom_split():
 def test_ass_follows_seam():
     ass = build_ass([{"start": 0, "end": 1, "text": "x"}], {"offset_y": -10}, seam_y=640)
     assert "\pos(540,630)" in ass
+
+
+# --- i18n: server messages follow the UI language (X-Lang), English by default ---
+from core import i18n, jobs
+
+
+def test_i18n_lang_selection():
+    assert i18n.normalize_lang("tr-TR") == "tr"
+    assert i18n.normalize_lang(None) == "en"
+    assert i18n.normalize_lang("de") == "en"
+    assert set(i18n.MESSAGES["bad_url"]) == set(i18n.LANGS)
+    for key, entry in i18n.MESSAGES.items():
+        assert set(entry) == set(i18n.LANGS), key
+
+
+def test_i18n_messages_in_request_language():
+    import contextvars
+
+    def in_lang(lang, fn):
+        ctx = contextvars.copy_context()
+        return ctx.run(lambda: (i18n.set_lang(lang), fn())[1])
+
+    assert in_lang("en", lambda: i18n.t("cut_too_short", name="X")) == "“X” is too short"
+    assert in_lang("tr", lambda: i18n.t("cut_too_short", name="X")) == "“X” çok kısa"
+    with pytest.raises(ValueError, match="Geçersiz zaman"):
+        in_lang("tr", lambda: parse_time("abc"))
+    with pytest.raises(ValueError, match="Invalid time"):
+        in_lang("en", lambda: parse_time("abc"))
+
+
+def test_job_thread_inherits_language():
+    import contextvars
+    import time
+
+    def start_in(lang):
+        def go():
+            i18n.set_lang(lang)
+            return jobs.start("test", lambda rep: {"msg": i18n.t("job_done")})
+        return contextvars.copy_context().run(go)
+
+    ids = {lang: start_in(lang) for lang in ("en", "tr")}
+    for _ in range(100):
+        if all(jobs.get(j)["status"] == "done" for j in ids.values()):
+            break
+        time.sleep(0.02)
+    assert jobs.get(ids["en"])["result"]["msg"] == "Done"
+    assert jobs.get(ids["tr"])["result"]["msg"] == "Tamamlandı"
+    assert jobs.get(ids["tr"])["message"] == "Tamamlandı"

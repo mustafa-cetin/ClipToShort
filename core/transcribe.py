@@ -15,6 +15,7 @@ import unicodedata
 from pathlib import Path
 
 from . import clips, config
+from .i18n import t
 from .jobs import JobError, run_process, run_simple
 
 _PROGRESS = re.compile(r"progress\s*=\s*(\d+)%")
@@ -339,7 +340,7 @@ _whisper_lock = threading.Lock()  # one whisper process at a time (GPU memory)
 
 def transcribe(cfg: dict, clip_id: str, start: float, end: float, report) -> dict:
     if not _whisper_lock.acquire(blocking=False):
-        report(0.0, "Sırada… (başka bir altyazı işi bitince başlayacak)")
+        report(0.0, t("whisper_queued"))
         _whisper_lock.acquire()
     try:
         return _transcribe(cfg, clip_id, start, end, report)
@@ -351,24 +352,24 @@ def _transcribe(cfg: dict, clip_id: str, start: float, end: float, report) -> di
     info = config.whisper_info(cfg)
     exes, model = info["exes"], info["model"]
     if not exes or model is None:
-        raise JobError("whisper.cpp bulunamadı. Önce scripts\\setup_whisper.ps1 çalıştırın.")
+        raise JobError(t("whisper_missing"))
     clip = clips.load(clip_id)
     d = clips.clip_dir(clip_id)
     wav = d / "audio.wav"
     wav.unlink(missing_ok=True)
 
-    report(0.02, "Ses çıkarılıyor…")
+    report(0.02, t("extracting_audio"))
     af = ["-af", AUDIO_FILTER] if cfg.get("whisper_filter", True) else []
     code, tail = run_process([cfg["ffmpeg"], "-y", "-v", "error",
                               "-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-i", clip["source"],
                               "-vn", *af, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", "audio.wav"],
                              cwd=str(d))
     if code != 0 or not wav.exists():
-        raise JobError("Ses çıkarılamadı: " + " | ".join(tail[-3:]))
+        raise JobError(t("audio_failed", detail=" | ".join(tail[-3:])))
 
     intervals, mapping = None, []
     if cfg.get("whisper_vad", True) and info["vad_model"] and info["vad_exe"]:
-        report(0.04, "Konuşma bölümleri bulunuyor (VAD)…")
+        report(0.04, t("finding_speech"))
         try:  # full stdout (run_process keeps only the last lines)
             out = run_simple([str(info["vad_exe"]), "-vm", str(info["vad_model"]),
                               "-f", "audio.wav", "-np"], cwd=str(d), timeout=600)
@@ -377,13 +378,15 @@ def _transcribe(cfg: dict, clip_id: str, start: float, end: float, report) -> di
         if out is not None:
             intervals = merge_intervals(parse_vad_output(out), end - start)
             if not intervals:
-                raise JobError("Bu klipte konuşma bulunamadı (sadece müzik/oyun sesi).")
+                raise JobError(t("no_speech"))
             mapping = build_speech_track(wav, intervals)
+
+    model_name = model.stem.replace("ggml-", "")
 
     def on_line(line: str):
         m = _PROGRESS.search(line)
         if m:
-            report(0.08 + 0.88 * int(m.group(1)) / 100, f"Altyazı çıkarılıyor ({model.stem.replace('ggml-', '')})… %{m.group(1)}")
+            report(0.08 + 0.88 * int(m.group(1)) / 100, t("transcribing_pct", model=model_name, pct=m.group(1)))
 
     dtw = dtw_preset(model.name) if cfg.get("whisper_dtw", True) else None
     out_json = d / "transcript.json"
@@ -391,7 +394,7 @@ def _transcribe(cfg: dict, clip_id: str, start: float, end: float, report) -> di
     last_err: list[str] = []
     for exe, use_dtw in attempts:
         out_json.unlink(missing_ok=True)
-        report(0.08, f"Altyazı çıkarılıyor ({model.stem.replace('ggml-', '')})…")
+        report(0.08, t("transcribing", model=model_name))
         cmd = build_whisper_cmd(str(exe), str(model), cfg.get("whisper_language", "tr"),
                                 vad_model=None, dtw=use_dtw, prompt=cfg.get("whisper_prompt"),
                                 acp=_ansi_codepage())
@@ -400,7 +403,7 @@ def _transcribe(cfg: dict, clip_id: str, start: float, end: float, report) -> di
             break
         last_err = tail[-4:]
     else:
-        raise JobError("whisper hata verdi: " + " | ".join(last_err))
+        raise JobError(t("whisper_failed", detail=" | ".join(last_err)))
 
     data = json.loads(out_json.read_bytes().decode("utf-8", errors="replace"))
     words = words_from_tokens(data)

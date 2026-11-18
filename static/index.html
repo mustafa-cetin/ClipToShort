@@ -1,31 +1,35 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kick → TikTok Klip</title>
+<title>Kick → TikTok Clip</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header>
-  <h1>Kick → TikTok Klip</h1>
+  <h1 data-i18n="app.title">Kick → TikTok Clip</h1>
   <div id="status" class="chips"></div>
+  <span class="grow"></span>
+  <select id="uiLang" data-i18n-title="ui.langTitle" title="Interface language">
+    <option value="en">English</option><option value="tr">Türkçe</option>
+  </select>
 </header>
 
 <main>
   <!-- 1. Download a source range -->
   <section class="card" id="newClip">
-    <h2>1 · Yayından kaynak indir</h2>
+    <h2 data-i18n="s1.title">1 · Download a source from a stream</h2>
     <form id="dlForm" class="row">
-      <input id="url" type="url" placeholder="https://kick.com/kanal/videos/…" required class="grow">
-      <label>Başlangıç <input id="start" placeholder="1:00:00 (boş = baş)" size="12"></label>
-      <label>Bitiş <input id="end" placeholder="2:00:00 / +30m (boş = son)" size="14"></label>
-      <button type="submit" class="primary">İndir</button>
+      <input id="url" type="url" data-i18n-placeholder="dl.urlPlaceholder" placeholder="https://kick.com/channel/videos/…" required class="grow">
+      <label><span data-i18n="dl.start">Start</span> <input id="start" data-i18n-placeholder="dl.startPlaceholder" placeholder="1:00:00 (empty = beginning)" size="12"></label>
+      <label><span data-i18n="dl.end">End</span> <input id="end" data-i18n-placeholder="dl.endPlaceholder" placeholder="2:00:00 / +30m (empty = end)" size="14"></label>
+      <button type="submit" class="primary" data-i18n="dl.submit">Download</button>
     </form>
     <p id="sizeHint" class="hint"></p>
     <div id="dlProgress" class="progress hidden"><div class="bar"></div><span></span></div>
     <details id="recentWrap">
-      <summary>Önceki kaynaklar</summary>
+      <summary data-i18n="dl.recent">Previous sources</summary>
       <ul id="recent"></ul>
     </details>
   </section>
@@ -34,55 +38,55 @@
   <div id="editor" class="hidden">
     <div class="editor-grid">
       <section class="card">
-        <h2>2 · Bölgeler ve klipler <small id="clipInfo"></small></h2>
+        <h2><span data-i18n="s2.title">2 · Regions and clips</span> <small id="clipInfo"></small></h2>
         <div class="row toolbar">
           <div class="seg" id="activeRegion">
-            <button data-r="cam" class="on cam">Kamera</button>
-            <button data-r="game" class="game">Oyun</button>
+            <button data-r="cam" class="on cam" data-i18n="region.cam">Camera</button>
+            <button data-r="game" class="game" data-i18n="region.game">Game</button>
           </div>
-          <label>Kamera
-            <select id="camMode"><option value="blur">Bulanık dolgu</option><option value="cover">Doldur (kırp)</option></select>
+          <label><span data-i18n="region.cam">Camera</span>
+            <select id="camMode"><option value="blur" data-i18n="mode.blur">Blurred fill</option><option value="cover" data-i18n="mode.cover">Fill (crop)</option></select>
           </label>
-          <label>Oyun
-            <select id="gameMode"><option value="blur">Bulanık dolgu</option><option value="cover">Doldur (kırp)</option></select>
+          <label><span data-i18n="region.game">Game</span>
+            <select id="gameMode"><option value="blur" data-i18n="mode.blur">Blurred fill</option><option value="cover" data-i18n="mode.cover">Fill (crop)</option></select>
           </label>
           <span class="grow"></span>
-          <div class="seg" id="scope" title="Yayın düzeni değişen bir klipte bölgeleri sadece o klip için ayarla">
-            <button data-s="shared" class="on">Ortak bölgeler</button>
-            <button data-s="cut">Bu klibe özel</button>
+          <div class="seg" id="scope" data-i18n-title="scope.title" title="If the stream layout changes in one clip, set its regions for that clip only">
+            <button data-s="shared" class="on" data-i18n="scope.shared">Shared regions</button>
+            <button data-s="cut" data-i18n="scope.cut">This clip only</button>
           </div>
-          <button id="savePreset" title="Bu yayıncının sonraki kaynaklarında otomatik yüklenir">Yayıncı için kaydet</button>
+          <button id="savePreset" data-i18n="preset.save" data-i18n-title="preset.saveTitle" title="Loaded automatically for this streamer's next sources">Save for streamer</button>
         </div>
-        <p class="hint" id="regionHint">Sürükleyerek dikdörtgen çiz · içinden tutup taşı · köşesinden boyutlandır.</p>
+        <p class="hint" id="regionHint" data-i18n="region.hint">Drag to draw a rectangle · grab inside to move · drag a corner to resize.</p>
         <div id="srcWrap"><canvas id="srcCanvas"></canvas></div>
 
         <div class="row player">
-          <button id="playBtn" class="icon" title="Oynat / durdur (Boşluk)">▶</button>
+          <button id="playBtn" class="icon" data-i18n-title="player.playTitle" title="Play / pause (Space)">▶</button>
           <span id="timeLabel" class="mono">0:00.0 / 0:00.0</span>
           <span class="grow"></span>
-          <button id="markIn" title="Klip başlangıcı (I)">[ Giriş <kbd>I</kbd></button>
-          <button id="markOut" title="Klip bitişi (O)">Çıkış ] <kbd>O</kbd></button>
+          <button id="markIn" data-i18n-title="player.inTitle" title="Clip start (I)">[ <span data-i18n="player.in">In</span> <kbd>I</kbd></button>
+          <button id="markOut" data-i18n-title="player.outTitle" title="Clip end (O)"><span data-i18n="player.out">Out</span> ] <kbd>O</kbd></button>
           <span id="inOutLabel" class="mono"></span>
-          <button id="addCut" class="primary" title="Giriş–çıkış aralığından yeni klip (N)">+ Klip ekle <kbd>N</kbd></button>
+          <button id="addCut" class="primary" data-i18n-title="player.addCutTitle" title="New clip from the in–out range (N)"><span data-i18n="player.addCut">+ Add clip</span> <kbd>N</kbd></button>
         </div>
-        <div id="timeline" title="Tıkla: oraya git">
+        <div id="timeline" data-i18n-title="timeline.title" title="Click: go there">
           <div id="tlCuts"></div>
           <div id="tlRange" class="hidden"></div>
           <div id="tlHead"></div>
         </div>
         <div class="row zoomRow">
           <span class="mono" id="tlStart"></span><span class="grow"></span>
-          <label>Yakınlaştır <input id="zoom" type="range" min="0" max="1" step="0.01" value="0"></label>
+          <label><span data-i18n="timeline.zoom">Zoom</span> <input id="zoom" type="range" min="0" max="1" step="0.01" value="0"></label>
           <span class="grow"></span><span class="mono" id="tlEnd"></span>
         </div>
-        <p class="hint">Kısayollar: Boşluk oynat · ←/→ 1 sn (Shift 5 sn) · <b>,</b>/<b>.</b> tek kare · I giriş · O çıkış · N klip ekle</p>
+        <p class="hint" data-i18n-html="player.shortcuts">Shortcuts: Space play · ←/→ 1 s (Shift 5 s) · <b>,</b>/<b>.</b> one frame · I in · O out · N add clip</p>
       </section>
 
       <section class="card previewCard">
-        <h2>Önizleme <small id="pvCutName"></small></h2>
-        <div id="splitRow" title="Kamera ve oyun bölümlerinin dikey videodaki oranı. Önizlemede iki görüntü arasındaki çizgiyi sürükleyerek de değiştirebilirsin.">
+        <h2><span data-i18n="preview.title">Preview</span> <small id="pvCutName"></small></h2>
+        <div id="splitRow" data-i18n-title="split.title" title="Share of the camera and game sections in the vertical video. You can also drag the line between the two images in the preview.">
           <div class="splitTop">
-            <span>Düzen</span>
+            <span data-i18n="split.layout">Layout</span>
             <span id="splitLabel" class="mono"></span>
           </div>
           <input id="splitRange" type="range" min="20" max="80" step="1" value="50">
@@ -95,96 +99,98 @@
         </div>
         <canvas id="previewCanvas" width="540" height="960"></canvas>
         <div id="pvPlayer">
-          <div id="pvBar" title="Tıkla veya sürükle: o ana git">
+          <div id="pvBar" data-i18n-title="pv.barTitle" title="Click or drag: go to that moment">
             <div id="pvSegs"></div>
             <div id="pvHead"></div>
             <div id="pvHover" class="hidden"></div>
           </div>
           <div class="pvTimes mono"><span id="pvA"></span><span id="pvB"></span></div>
           <div class="pvCtl">
-            <button id="pvStart" title="Klibin başı (Home)">⏮</button>
-            <button id="pvBack1" title="1 sn geri (←)">−1s</button>
-            <button id="pvPrevF" title="Bir kare geri (,)">◀|</button>
-            <button id="pvPlay" class="primary" title="Bulunduğun yerden oynat / durdur (Boşluk)">▶</button>
-            <button id="pvNextF" title="Bir kare ileri (.)">|▶</button>
-            <button id="pvFwd1" title="1 sn ileri (→)">+1s</button>
-            <select id="pvRate" title="Oynatma hızı (altyazıyı yavaş kontrol etmek için)">
+            <button id="pvStart" data-i18n-title="pv.startTitle" title="Clip start (Home)">⏮</button>
+            <button id="pvBack1" data-i18n-title="pv.back1Title" title="1 s back (←)">−1s</button>
+            <button id="pvPrevF" data-i18n-title="pv.prevFTitle" title="One frame back (,)">◀|</button>
+            <button id="pvPlay" class="primary" data-i18n-title="pv.playTitle" title="Play / pause from the playhead (Space)">▶</button>
+            <button id="pvNextF" data-i18n-title="pv.nextFTitle" title="One frame forward (.)">|▶</button>
+            <button id="pvFwd1" data-i18n-title="pv.fwd1Title" title="1 s forward (→)">+1s</button>
+            <select id="pvRate" data-i18n-title="pv.rateTitle" title="Playback speed (to check captions slowly)">
               <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option>
             </select>
           </div>
           <div class="pvCtl">
-            <input id="pvTime" class="mono" title="Zaman yazıp Enter'a bas (ör. 13.42 veya 0:13.4): o ana gider">
+            <input id="pvTime" class="mono" data-i18n-title="pv.timeTitle" title="Type a time and press Enter (e.g. 13.42 or 0:13.4) to jump there">
             <span class="mono" id="pvDur"></span>
           </div>
         </div>
-        <button id="renderBtn" class="primary wide">Render bu klip</button>
+        <button id="renderBtn" class="primary wide" data-i18n="render.one">Render this clip</button>
         <div id="renderProgress" class="progress hidden"><div class="bar"></div><span></span></div>
       </section>
     </div>
 
     <section class="card">
       <div class="row toolbar">
-        <h2 style="margin:0">3 · Klipler <small id="cutCount"></small></h2>
+        <h2 style="margin:0"><span data-i18n="s3.title">3 · Clips</span> <small id="cutCount"></small></h2>
         <span class="grow"></span>
-        <a href="#" id="openFolder">Çıktı klasörünü aç</a>
-        <button id="renderAll" class="primary">Tümünü render et</button>
+        <a href="#" id="openFolder" data-i18n="out.open">Open output folder</a>
+        <button id="renderAll" class="primary" data-i18n="render.all">Render all</button>
       </div>
       <table id="cutTable">
-        <thead><tr><th></th><th>Ad</th><th>Başlangıç</th><th>Bitiş</th><th>Süre</th><th>Bölge</th><th>Durum</th><th></th></tr></thead>
+        <thead><tr><th></th><th data-i18n="col.name">Name</th><th data-i18n="col.start">Start</th><th data-i18n="col.end">End</th><th data-i18n="col.duration">Duration</th><th data-i18n="col.region">Region</th><th data-i18n="col.status">Status</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
-      <p id="cutEmpty" class="hint">Henüz klip yok. Oynatıcıda <b>I</b> ile giriş, <b>O</b> ile çıkış işaretleyip <b>+ Klip ekle</b>'ye basın.</p>
+      <p id="cutEmpty" class="hint" data-i18n-html="cuts.empty">No clips yet. In the player, mark the in point with <b>I</b> and the out point with <b>O</b>, then press <b>+ Add clip</b>.</p>
     </section>
 
     <section class="card">
-      <h2>4 · Altyazı <small id="segScope"></small></h2>
+      <h2><span data-i18n="s4.title">4 · Captions</span> <small id="segScope"></small></h2>
       <div class="row toolbar">
-        <label>Model <select id="wModel"></select></label>
-        <label>Dil
-          <select id="lang"><option value="tr">Türkçe</option><option value="auto">Otomatik</option><option value="en">İngilizce</option></select>
+        <label><span data-i18n="w.model">Model</span> <select id="wModel"></select></label>
+        <!-- Transcription language (independent of the UI language); most videos are Turkish. -->
+        <label><span data-i18n="w.lang">Language</span>
+          <select id="lang"><option value="tr" data-i18n="lang.tr">Turkish</option><option value="auto" data-i18n="lang.auto">Auto</option><option value="en" data-i18n="lang.en">English</option></select>
         </label>
-        <label title="Konuşma olmayan bölümleri (müzik, oyun sesi) atlar; uydurma metni engeller"><input id="wVad" type="checkbox" checked> Sessizlik filtresi</label>
-        <button id="transcribeBtn" class="primary">Bu klip için Whisper</button>
+        <label data-i18n-title="w.vadTitle" title="Skips parts without speech (music, game audio); prevents invented text"><input id="wVad" type="checkbox" checked> <span data-i18n="w.vad">Silence filter</span></label>
+        <button id="transcribeBtn" class="primary" data-i18n="w.run">Whisper for this clip</button>
       </div>
       <div class="row toolbar">
-        <label class="grow" title="Whisper'a ipucu: yayıncı adı, oyun adları, sık kullanılan kelimeler/argo. Yazımı doğru çıkmasına yardım eder.">İpucu
-          <input id="wPrompt" class="grow" placeholder="ör. Hype, GTA, Jason, Lucia, lan, kanka…">
+        <label class="grow" data-i18n-title="w.promptTitle" title="Hint for Whisper: streamer name, game names, frequent words/slang. Helps spell them correctly."><span data-i18n="w.prompt">Hint</span>
+          <input id="wPrompt" class="grow" data-i18n-placeholder="w.promptPlaceholder" placeholder="e.g. Hype, GTA, Jason, Lucia, lan, kanka…">
         </label>
-        <button id="savePrompt" title="Bu yayıncının sonraki kaynaklarında otomatik gelsin">Yayıncı için kaydet</button>
+        <button id="savePrompt" data-i18n="preset.save" data-i18n-title="w.savePromptTitle" title="Fill in automatically for this streamer's next sources">Save for streamer</button>
       </div>
       <div class="row toolbar">
-        <button id="addSeg">+ Satır ekle (şu an)</button>
-        <button id="clearSegs">Bu klibin altyazılarını sil</button>
+        <button id="addSeg" data-i18n="seg.add">+ Add line (now)</button>
+        <button id="clearSegs" data-i18n="seg.clear">Delete this clip's captions</button>
         <span class="grow"></span>
-        <span class="hint" style="margin:0">Zamanlama:</span>
-        <button id="shiftBack" title="Bu klibin tüm altyazılarını 0,1 sn erkene al">◀ −0,1 sn</button>
-        <button id="shiftFwd" title="Bu klibin tüm altyazılarını 0,1 sn geciktir">+0,1 sn ▶</button>
+        <span class="hint" style="margin:0" data-i18n="seg.timing">Timing:</span>
+        <button id="shiftBack" data-i18n="seg.shiftBack" data-i18n-title="seg.shiftBackTitle" title="Move all captions of this clip 0.1 s earlier">◀ −0.1 s</button>
+        <button id="shiftFwd" data-i18n="seg.shiftFwd" data-i18n-title="seg.shiftFwdTitle" title="Delay all captions of this clip by 0.1 s">+0.1 s ▶</button>
       </div>
       <div id="trProgress" class="progress hidden"><div class="bar"></div><span></span></div>
 
       <div class="row style">
-        <label>Font <input id="sFont" size="12"></label>
-        <label>Boyut <input id="sSize" type="number" min="20" max="200"></label>
-        <label>Renk <input id="sColor" type="color"></label>
-        <label>Kontur <input id="sOutlineColor" type="color"></label>
-        <label>Kontur kalınlığı <input id="sOutline" type="number" min="0" max="20" step="0.5"></label>
-        <label>Dikey kaydırma <input id="sOffset" type="number" min="-900" max="900" step="5"></label>
-        <label><input id="sUpper" type="checkbox"> BÜYÜK HARF</label>
-        <label title="Whisper çıkarırken bir satıra en fazla kaç kelime konsun">Kelime/satır <input id="sWords" type="number" min="1" max="10"></label>
-        <button id="saveStyle" title="Yeni kaynaklarda varsayılan olsun">Varsayılan yap</button>
+        <label><span data-i18n="style.font">Font</span> <input id="sFont" size="12"></label>
+        <label><span data-i18n="style.size">Size</span> <input id="sSize" type="number" min="20" max="200"></label>
+        <label><span data-i18n="style.color">Color</span> <input id="sColor" type="color"></label>
+        <label><span data-i18n="style.outlineColor">Outline</span> <input id="sOutlineColor" type="color"></label>
+        <label><span data-i18n="style.outline">Outline width</span> <input id="sOutline" type="number" min="0" max="20" step="0.5"></label>
+        <label><span data-i18n="style.offset">Vertical offset</span> <input id="sOffset" type="number" min="-900" max="900" step="5"></label>
+        <label><input id="sUpper" type="checkbox"> <span data-i18n="style.upper">UPPERCASE</span></label>
+        <label data-i18n-title="style.wordsTitle" title="Maximum words per line when Whisper creates captions"><span data-i18n="style.words">Words/line</span> <input id="sWords" type="number" min="1" max="10"></label>
+        <button id="saveStyle" data-i18n="style.save" data-i18n-title="style.saveTitle" title="Use as the default for new sources">Make default</button>
       </div>
 
       <table id="segTable">
-        <thead><tr><th></th><th>Başlangıç</th><th>Bitiş</th><th class="grow">Metin</th><th></th></tr></thead>
+        <thead><tr><th></th><th data-i18n="col.start">Start</th><th data-i18n="col.end">End</th><th class="grow" data-i18n="col.text">Text</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
-      <p id="segEmpty" class="hint">Bu klipte altyazı yok. “Bu klip için Whisper” ile otomatik oluşturun veya elle satır ekleyin.</p>
+      <p id="segEmpty" class="hint" data-i18n="seg.empty">No captions in this clip. Create them with “Whisper for this clip” or add lines by hand.</p>
     </section>
   </div>
 </main>
 
 <video id="video" preload="auto" playsinline class="hidden"></video>
 <div id="toast" class="hidden"></div>
+<script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

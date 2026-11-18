@@ -1,14 +1,15 @@
-# Katkıda bulunma
+# Contributing
 
-Katkıların için teşekkürler! Hata bildirimi, öneri ve pull request'lere açığız.
+Thanks for contributing! Bug reports, suggestions and pull requests are welcome.
 
-## Hata bildirirken
+## Reporting a bug
 
-- Windows sürümü, Python sürümü, `ffmpeg -version` ilk satırı, `yt-dlp --version`, GPU modeli.
-- Ne yaptın, ne bekliyordun, ne oldu? Arayüzdeki hata mesajını ve sunucu konsolundaki çıktıyı ekle.
-- Kişisel bilgi, çerez ya da indirilen yayın dosyalarını **paylaşma**.
+- Windows version, Python version, first line of `ffmpeg -version`, `yt-dlp --version`, GPU model.
+- What did you do, what did you expect, what happened? Include the error message from the UI and the
+  output from the server console.
+- **Do not share** personal information, cookies or downloaded stream files.
 
-## Geliştirme ortamı
+## Development environment
 
 ```bat
 python -m venv .venv
@@ -17,14 +18,15 @@ python -m venv .venv
 set PORT=5055 && .venv\Scripts\python app.py
 ```
 
-## Pull request kuralları
+## Pull request guidelines
 
-- Değişiklik başına bir konu; küçük ve okunabilir PR'lar.
-- Yeni mantık için `tests/` altına test ekle; `pytest` geçmeli.
-- Arayüz değişikliklerinde `node --check static/app.js` hatasız olmalı; mümkünse ekran görüntüsü ekle.
-- Commit mesajları [Conventional Commits](https://www.conventionalcommits.org/) biçiminde: `feat(render): …`, `fix(transcribe): …`.
-- Depoya model, araç, video, ses ya da tescilli font dosyası **ekleme** (`.gitignore` bunları dışlar).
+- One topic per change; small, readable PRs.
+- Add tests under `tests/` for new logic; `pytest` must pass.
+- For UI changes `node --check static/app.js` must pass; add a screenshot if possible.
+- New UI strings go into `static/i18n.js` in **both** `en` and `tr`; new server messages into `core/i18n.py`.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `feat(render): …`, `fix(transcribe): …`.
+- **Do not add** model, tool, video, audio or proprietary font files to the repo (`.gitignore` excludes them).
 
-## Lisans
+## License
 
-Gönderdiğin katkılar projenin [MIT lisansı](LICENSE) altında yayımlanır.
+Contributions you submit are published under the project's [MIT license](LICENSE).

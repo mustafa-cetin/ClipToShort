@@ -24,6 +24,6 @@ def all_presets() -> dict:
 def put(channel: str, preset: dict) -> None:
     """Merge into the channel's entry (regions and the whisper prompt are saved separately)."""
     data = _load()
-    key = (channel or "bilinmeyen").lower()
+    key = (channel or "unknown").lower()
     data[key] = {**data.get(key, {}), **preset}
     PRESETS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

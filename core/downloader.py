@@ -3,6 +3,7 @@ import json
 import re
 
 from . import clips
+from .i18n import t
 from .jobs import JobError, run_process, run_simple
 from .timeparse import fmt_time
 
@@ -17,13 +18,13 @@ def fetch_metadata(cfg: dict, url: str) -> dict:
                       "--print", "%(duration)s", url], timeout=90)
     lines = out.strip().splitlines()
     if len(lines) < 3:
-        raise JobError("Video bilgisi alınamadı. Link doğru mu?")
+        raise JobError(t("meta_failed"))
     channel, title, duration = lines[-3:]
     try:
         dur = float(duration)
     except ValueError:
         dur = None
-    return {"channel": channel if channel != "NA" else "bilinmeyen",
+    return {"channel": channel if channel != "NA" else t("unknown_channel"),
             "title": title, "duration": dur}
 
 
@@ -33,7 +34,7 @@ def probe(cfg: dict, path: str) -> dict:
     data = json.loads(out)
     v = next((s for s in data.get("streams", []) if s.get("codec_type") == "video"), None)
     if v is None:
-        raise JobError("İndirilen dosyada video yok")
+        raise JobError(t("no_video_stream"))
     num, _, den = (v.get("avg_frame_rate") or v.get("r_frame_rate") or "30/1").partition("/")
     fps = float(num) / float(den or 1) if float(den or 1) else 30.0
     has_audio = any(s.get("codec_type") == "audio" for s in data["streams"])
@@ -59,18 +60,18 @@ def make_browser_playable(cfg: dict, clip: dict, report) -> None:
     def on_line(line: str):
         if line.startswith("out_time_us="):
             try:
-                t = int(line.split("=", 1)[1]) / 1_000_000
+                sec = int(line.split("=", 1)[1]) / 1_000_000
             except ValueError:
                 return
-            report(0.5 + 0.48 * min(1.0, t / duration), "Tarayıcı uyumlu formata çevriliyor…")
+            report(0.5 + 0.48 * min(1.0, sec / duration), t("converting"))
 
-    report(0.5, "Tarayıcı uyumlu formata çevriliyor…")
+    report(0.5, t("converting"))
     code, tail = run_process([cfg["ffmpeg"], "-y", "-hide_banner", "-nostats", "-progress", "pipe:1",
                               "-i", clip["source"], "-map", "0:v:0", "-map", "0:a:0?", *ENCODE_ARGS,
                               "-movflags", "+faststart", "source_h264.mp4"], on_line, cwd=str(d))
     out = d / "source_h264.mp4"
     if code != 0 or not out.exists():
-        raise JobError("Video dönüştürülemedi: " + " | ".join(tail[-3:]))
+        raise JobError(t("convert_failed", detail=" | ".join(tail[-3:])))
     src = d / clip["source"]
     src.unlink()
     out.replace(d / "source.mp4")
@@ -83,38 +84,38 @@ def download(cfg: dict, clip: dict, report) -> dict:
     d = clips.clip_dir(clip["id"])
     start = clip["start"]
 
-    report(0.02, "Video bilgisi alınıyor…")
+    report(0.02, t("fetching_meta"))
     meta = fetch_metadata(cfg, clip["url"])
     vod_dur = meta["duration"]
     if vod_dur and start >= vod_dur:
-        raise JobError(f"Başlangıç ({fmt_time(start)}) videonun süresinden "
-                       f"({fmt_time(vod_dur)}) sonra")
+        raise JobError(t("start_after_end", start=fmt_time(start), duration=fmt_time(vod_dur)))
     end = clip.get("end")
     if end is None:  # empty end → until the end of the VOD
         if not vod_dur:
-            raise JobError("VOD süresi bilinmiyor; bitiş zamanını girin")
+            raise JobError(t("vod_duration_unknown"))
         end = vod_dur
     if vod_dur:
         end = min(end, vod_dur)
     if end - start > cfg["max_source_seconds"]:
-        raise JobError(f"Aralık en fazla {cfg['max_source_seconds'] // 3600} saat olabilir")
+        raise JobError(t("range_too_long", hours=cfg["max_source_seconds"] // 3600))
     length = end - start
     clip.update(channel=meta["channel"], title=meta["title"], vod_duration=vod_dur, end=end)
     clips.save(clip)
 
-    report(0.05, f"İndiriliyor: {fmt_time(start)} → {fmt_time(end)}")
+    report(0.05, t("downloading_range", start=fmt_time(start), end=fmt_time(end)))
     for old in d.glob("source.*"):
         old.unlink()
 
     def on_line(line: str):
         m = _PCT.search(line)
         if m:
-            report(0.05 + 0.9 * float(m.group(1)) / 100, f"İndiriliyor… %{float(m.group(1)):.0f}")
+            report(0.05 + 0.9 * float(m.group(1)) / 100, t("downloading_pct", pct=f"{float(m.group(1)):.0f}"))
             return
         m = _FFTIME.search(line)
         if m and length > 0:
-            t = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
-            report(0.05 + 0.9 * min(1.0, t / length), f"İndiriliyor… {fmt_time(t)} / {fmt_time(length)}")
+            sec = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+            report(0.05 + 0.9 * min(1.0, sec / length),
+                   t("downloading_time", t=fmt_time(sec), total=fmt_time(length)))
 
     # Stream copy (no re-encode): fast, keeps Kick's H.264/AAC. The cut snaps to the previous
     # keyframe, which is fine — exact clip boundaries are applied at render time.
@@ -128,9 +129,9 @@ def download(cfg: dict, clip: dict, report) -> dict:
     code, tail = run_process(cmd, on_line)
     files = sorted(d.glob("source.mp4")) or sorted(d.glob("source.*"))
     if code != 0 or not files:
-        raise JobError("İndirme başarısız: " + " | ".join(tail[-4:]))
+        raise JobError(t("download_failed", detail=" | ".join(tail[-4:])))
 
-    report(0.97, "Video inceleniyor…")
+    report(0.97, t("probing"))
     info = probe(cfg, str(files[0]))
     clip.update(source=files[0].name, video=info)
     make_browser_playable(cfg, clip, report)
