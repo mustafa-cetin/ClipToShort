@@ -12,7 +12,7 @@ const clampSplit = (v) => { v = Math.round(+v || SPLIT_DEFAULT); v = Math.max(SP
 let split = SPLIT_DEFAULT;  // shared camera-section height
 let seamHover = false, seamDrag = false; // dragging the camera/game seam on the preview
 const COLORS = { cam: "#3d9bff", game: "#53fc18" };
-const LABELS = { cam: "KAMERA", game: "OYUN" };
+const LABELS = { cam: "region.camLabel", game: "region.gameLabel" }; // i18n keys
 const GB_PER_HOUR = 2.7;
 
 let clip = null;            // server source object
@@ -31,7 +31,7 @@ const cutStatus = {};       // cutId → {render: {...}, transcribe: {...}}
 // ---------- helpers ----------
 async function api(path, opts = {}) {
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" }, ...opts,
+    headers: { "Content-Type": "application/json", "X-Lang": LANG }, ...opts,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -74,7 +74,7 @@ async function pollJob(jobId, onUpdate) {
     const j = await api(`/api/jobs/${jobId}`);
     onUpdate(j);
     if (j.status === "done") return j.result;
-    if (j.status === "error") throw new Error(j.error || "Hata");
+    if (j.status === "error") throw new Error(j.error || T("common.error"));
     await new Promise((r) => setTimeout(r, 700));
   }
 }
@@ -102,7 +102,7 @@ function syncSplitUi() {
   const L = layout();
   const pct = Math.round(L.split / OUT_H * 100);
   $("#splitRange").value = pct;
-  $("#splitLabel").textContent = `Kamera %${pct} · Oyun %${100 - pct}${L.own ? " (bu klibe özel)" : ""}`;
+  $("#splitLabel").textContent = T("split.ratio", { cam: pct, game: 100 - pct }) + (L.own ? T("split.own") : "");
   document.querySelectorAll(".splitBtns button").forEach((b) => b.classList.toggle("on", +b.dataset.p === pct));
 }
 $("#splitRange").addEventListener("input", (e) => setSplit(+e.target.value / 100 * OUT_H));
@@ -135,7 +135,7 @@ async function loadStatus() {
   defaultStyle = s.style;
   const chips = [
     ["yt-dlp", s.ytdlp], ["ffmpeg", s.ffmpeg],
-    [s.whisper ? `whisper (${s.whisper_model})` : "whisper yok", s.whisper],
+    [s.whisper ? `whisper (${s.whisper_model})` : T("w.none"), s.whisper],
     [s.nvenc ? "NVENC" : "CPU encode", true],
   ];
   $("#status").innerHTML = chips.map(([n, ok]) => `<span class="chip ${ok ? "ok" : "bad"}">${esc(n)}</span>`).join("");
@@ -146,7 +146,7 @@ async function loadStatus() {
   if (saved && (s.whisper_models || []).some((m) => m.name === saved)) modelSel.value = saved;
   else if (s.whisper_model) modelSel.value = s.whisper_model;
   $("#wVad").disabled = !s.whisper_vad;
-  if (!s.whisper_vad) { $("#wVad").checked = false; $("#wVad").parentElement.title = "VAD modeli yok — scripts\\setup_whisper.ps1 çalıştırın"; }
+  if (!s.whisper_vad) { $("#wVad").checked = false; $("#wVad").parentElement.title = T("w.noVad"); }
 }
 $("#wModel").onchange = (e) => { try { localStorage.setItem("wModel", e.target.value); } catch (err) { /* ignore */ } };
 async function loadRecent() {
@@ -157,12 +157,12 @@ async function loadRecent() {
   for (const c of list) {
     const li = document.createElement("li");
     const len = c.end != null ? fmtHms(c.end - c.start) : "?";
-    li.innerHTML = `<span class="t"></span><span class="mono">${c.cuts} klip · ${c.rendered} render</span><button title="Sil">✕</button>`;
-    li.querySelector(".t").textContent = `${c.channel || "?"} · ${fmtHms(c.start)}–${c.end != null ? fmtHms(c.end) : "son"} (${len}) · ${c.title || ""}`;
+    li.innerHTML = `<span class="t"></span><span class="mono">${esc(T("recent.counts", { cuts: c.cuts, rendered: c.rendered }))}</span><button title="${esc(T("common.delete"))}">✕</button>`;
+    li.querySelector(".t").textContent = `${c.channel || "?"} · ${fmtHms(c.start)}–${c.end != null ? fmtHms(c.end) : T("recent.end")} (${len}) · ${c.title || ""}`;
     li.onclick = () => openClip(c.id);
     li.querySelector("button").onclick = async (e) => {
       e.stopPropagation();
-      if (!confirm("Bu kaynağın çalışma dosyaları silinsin mi? (output klasöründeki videolar kalır)")) return;
+      if (!confirm(T("recent.confirmDelete"))) return;
       await api(`/api/clips/${c.id}`, { method: "DELETE" });
       if (clip && clip.id === c.id) { $("#editor").classList.add("hidden"); clip = null; video.removeAttribute("src"); }
       loadRecent();
@@ -179,10 +179,10 @@ function updateSizeHint() {
   const relSec = rel == null ? NaN : /^\d+(\.\d+)?m$/i.test(rel) ? parseFloat(rel) * 60
     : /^\d+(\.\d+)?h$/i.test(rel) ? parseFloat(rel) * 3600 : parseT(rel.replace(/s$/i, ""));
   const b = rel != null ? a + relSec : parseT(e);
-  if (!e) { $("#sizeHint").textContent = "Bitiş boş: VOD'un sonuna kadar iner (uzun yayınlarda birkaç GB)."; return; }
+  if (!e) { $("#sizeHint").textContent = T("dl.hintOpenEnd"); return; }
   if (isNaN(a) || isNaN(b) || b <= a) { $("#sizeHint").textContent = ""; return; }
   const h = (b - a) / 3600;
-  $("#sizeHint").textContent = `Aralık ${fmtHms(b - a)} · tahmini boyut ~${(h * GB_PER_HOUR).toFixed(h < 0.4 ? 2 : 1)} GB (1080p60)`;
+  $("#sizeHint").textContent = T("dl.hintSize", { len: fmtHms(b - a), gb: (h * GB_PER_HOUR).toFixed(h < 0.4 ? 2 : 1) });
 }
 $("#start").addEventListener("input", updateSizeHint);
 $("#end").addEventListener("input", updateSizeHint);
@@ -192,10 +192,10 @@ $("#dlForm").onsubmit = async (e) => {
   const btn = e.submitter; btn.disabled = true;
   const el = $("#dlProgress");
   try {
-    setProgress(el, 0, "Başlıyor…");
+    setProgress(el, 0, T("dl.starting"));
     const r = await api("/api/clips", { method: "POST", body: { url: $("#url").value, start: $("#start").value, end: $("#end").value } });
     await pollJob(r.job_id, (j) => setProgress(el, j.progress, j.message, j.status === "error"));
-    setProgress(el, 1, "İndirildi ✓ — şimdi klipleri işaretleyin");
+    setProgress(el, 1, T("dl.done"));
     await openClip(r.clip_id);
     loadRecent();
   } catch (err) {
@@ -212,7 +212,7 @@ async function openClip(id) {
     catch (err) { setProgress(el, 1, err.message, true); return; }
     return openClip(id);
   }
-  if (!c.source) { toast("Bu kaynağın indirmesi tamamlanmamış", true); return; }
+  if (!c.source) { toast(T("open.incomplete"), true); return; }
   clip = c;
   location.hash = `clip=${id}`;
   const v = c.video;
@@ -230,7 +230,7 @@ async function openClip(id) {
     regions = c.regions;
   } else if (c.preset && c.preset.regions) {
     applyPreset(c.preset);
-    toast(`“${c.channel}” için kayıtlı bölgeler yüklendi`);
+    toast(T("preset.loaded", { channel: c.channel }));
     saveState();
   } else {
     regions = {
@@ -309,7 +309,7 @@ function drawSrc() {
     srcCtx.strokeRect(x, y, w, h);
     srcCtx.setLineDash([]);
     srcCtx.font = `bold ${12 * dpr}px system-ui`;
-    const label = `${LABELS[k]}${L.own ? " (özel)" : ""} ${r.w}×${r.h}`;
+    const label = `${T(LABELS[k])}${L.own ? T("region.ownTag") : ""} ${r.w}×${r.h}`;
     const tw = srcCtx.measureText(label).width + 10 * dpr;
     srcCtx.fillStyle = COLORS[k];
     srcCtx.fillRect(x, y, tw, 18 * dpr);
@@ -387,8 +387,8 @@ function syncRegionUi() {
     b.disabled = !c;
   });
   $("#regionHint").textContent = L.own
-    ? `“${c.name}” klibine özel bölgeleri düzenliyorsunuz — diğer klipler etkilenmez.`
-    : "Ortak bölgeleri düzenliyorsunuz (özel bölgesi olmayan tüm klipler kullanır). Sürükle: çiz · içinden: taşı · köşeden: boyutlandır.";
+    ? T("region.hintOwn", { name: c.name })
+    : T("region.hintShared");
 }
 document.querySelectorAll("#scope button").forEach((b) => {
   b.onclick = () => {
@@ -397,7 +397,7 @@ document.querySelectorAll("#scope button").forEach((b) => {
     if (b.dataset.s === "cut" && !c.regions) {
       c.regions = clone(regions); c.modes = { ...modes }; c.split = split;
     } else if (b.dataset.s === "shared" && c.regions) {
-      if (!confirm(`“${c.name}” klibinin özel bölgeleri ve oranı silinip ortak düzen kullanılsın mı?`)) return;
+      if (!confirm(T("scope.confirmShared", { name: c.name }))) return;
       c.regions = null; c.modes = null; c.split = null;
     }
     syncRegionUi(); syncSplitUi(); renderCutTable(); drawAll(); saveState();
@@ -407,7 +407,7 @@ $("#savePreset").onclick = async () => {
   if (!clip) return;
   const L = layout();
   await api("/api/presets", { method: "POST", body: { channel: clip.channel, preset: { src_w: clip.video.width, src_h: clip.video.height, regions: L.regions, modes: L.modes, split: L.split } } });
-  toast(`“${clip.channel}” için kaydedildi — sonraki kaynaklar bu bölgelerle açılacak`);
+  toast(T("preset.saved", { channel: clip.channel }));
 };
 
 // ---------- preview (WYSIWYG of the ffmpeg graph) ----------
@@ -483,7 +483,7 @@ function drawPreview() {
     pvCtx.fillRect(pv.width / 2 - 70, camH - 13, 140, 26);
     pvCtx.fillStyle = "#fff"; pvCtx.font = "bold 14px system-ui"; pvCtx.textAlign = "center"; pvCtx.textBaseline = "middle";
     const pct = Math.round(L.split / OUT_H * 100);
-    pvCtx.fillText(`⇕ Kamera %${pct} · Oyun %${100 - pct}`, pv.width / 2, camH);
+    pvCtx.fillText(`⇕ ${T("split.ratio", { cam: pct, game: 100 - pct })}`, pv.width / 2, camH);
     pvCtx.restore();
   }
   const c = sel();
@@ -491,7 +491,7 @@ function drawPreview() {
   if (c && (t < c.start - 0.05 || t > c.end + 0.05)) { // outside the selected cut → dim
     pvCtx.fillStyle = "rgba(0,0,0,.55)"; pvCtx.fillRect(0, 0, pv.width, pv.height);
     pvCtx.fillStyle = "#fff"; pvCtx.font = "bold 22px system-ui"; pvCtx.textAlign = "center";
-    pvCtx.fillText("Seçili klibin dışında", pv.width / 2, pv.height / 2);
+    pvCtx.fillText(T("pv.outside"), pv.width / 2, pv.height / 2);
   }
 }
 
@@ -541,10 +541,10 @@ function pushUndo() {
   if (undoStack.length > 20) undoStack.shift();
 }
 function undo() {
-  if (!undoStack.length) { toast("Geri alınacak bir değişiklik yok"); return; }
+  if (!undoStack.length) { toast(T("undo.none")); return; }
   segments = undoStack.pop();
   changed(true);
-  toast("Geri alındı");
+  toast(T("undo.done"));
 }
 
 const SEG_MIN_DUR = 0.15, SNAP_PX = 6, EDGE_PX = 7;
@@ -563,7 +563,7 @@ function segWalls(s) { // neighbours (and the cut) are walls a caption can't cro
 function placeSegEl(el, s, a, b) {
   el.style.left = `${(Math.max(s.start, a) - a) / (b - a) * 100}%`;
   el.style.width = `${Math.max(0.6, (Math.min(s.end, b) - Math.max(s.start, a)) / (b - a) * 100)}%`;
-  el.title = `${fmtMs(s.start - a)} – ${fmtMs(s.end - a)}: ${s.text}\nSürükle: taşı · kenarlardan: uzat/kısalt · tıkla: oraya git`;
+  el.title = `${fmtMs(s.start - a)} – ${fmtMs(s.end - a)}: ${s.text}\n${T("seg.barTitle")}`;
 }
 function segModeAt(el, clientX) {
   const r = el.getBoundingClientRect();
@@ -642,7 +642,7 @@ function updatePvPlayer() {
   $("#pvHead").style.left = `${b > a ? Math.max(0, Math.min(1, (t - a) / (b - a))) * 100 : 0}%`;
   if (document.activeElement !== $("#pvTime")) $("#pvTime").value = fmtMs(Math.max(0, t - a));
   $("#pvDur").textContent = `/ ${fmtMs(b - a)}`;
-  $("#pvA").textContent = sel() ? "klip başı" : fmt(a);
+  $("#pvA").textContent = sel() ? T("pv.clipStart") : fmt(a);
   $("#pvB").textContent = sel() ? fmtMs(b - a) : fmt(b);
 }
 let pvDrag = false;
@@ -695,7 +695,7 @@ $("#pvRate").onchange = (e) => { video.playbackRate = +e.target.value; };
 $("#pvTime").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   const v = parseT(e.target.value);
-  if (isNaN(v)) { toast("Geçersiz zaman — ör. 13.42 veya 0:13.4", true); return; }
+  if (isNaN(v)) { toast(T("time.invalidHint"), true); return; }
   const [a, b] = pvRange();
   seek(Math.min(b, a + v));
   e.target.blur();
@@ -797,15 +797,16 @@ function newCutId() { return Math.random().toString(16).slice(2, 10).padEnd(8, "
 $("#addCut").onclick = () => {
   if (!clip) return;
   let a = inPt ?? video.currentTime, b = outPt ?? Math.min(dur(), a + 30);
-  if (b - a < 0.5) { toast("Klip çok kısa — giriş (I) ve çıkış (O) noktalarını işaretleyin", true); return; }
-  const n = cuts.reduce((m, c) => Math.max(m, +(/^Klip (\d+)$/.exec(c.name)?.[1] || 0)), 0) + 1;
-  const c = { id: newCutId(), name: `Klip ${n}`, start: +a.toFixed(2), end: +b.toFixed(2), regions: null, modes: null, output: null };
+  if (b - a < 0.5) { toast(T("cut.tooShortMark"), true); return; }
+  // Number after "Clip N" / "Klip N" (names may have been created in either UI language).
+  const n = cuts.reduce((m, c) => Math.max(m, +(/^(?:Clip|Klip) (\d+)$/.exec(c.name)?.[1] || 0)), 0) + 1;
+  const c = { id: newCutId(), name: T("cut.defaultName", { n }), start: +a.toFixed(2), end: +b.toFixed(2), regions: null, modes: null, output: null };
   cuts.push(c);
   cuts.sort((x, y) => x.start - y.start);
   inPt = outPt = null;
   selectCut(c.id, false);
   saveState();
-  toast(`${c.name} eklendi (${fmt(c.end - c.start)})`);
+  toast(T("cut.added", { name: c.name, len: fmt(c.end - c.start) }));
 };
 function selectCut(id, jump) {
   selId = id;
@@ -825,7 +826,7 @@ function statusHtml(c) {
   }
   if (c.output) {
     const u = `/output/${encodeURIComponent(c.output)}`;
-    parts.push(`✓ <a href="${u}" target="_blank">aç</a><a href="${u}?dl=1">indir</a>`);
+    parts.push(`✓ <a href="${u}" target="_blank">${esc(T("cut.open"))}</a><a href="${u}?dl=1">${esc(T("cut.download"))}</a>`);
   }
   return parts.join("<br>") || "—";
 }
@@ -838,14 +839,14 @@ function renderCutTable() {
     const segN = segments.filter((s) => s.end > c.start && s.start < c.end).length;
     const err = Object.values(cutStatus[c.id] || {}).some((s) => s.status === "error");
     tr.innerHTML = `
-      <td><button class="play" title="Oynat">▶</button></td>
+      <td><button class="play" title="${esc(T("common.play"))}">▶</button></td>
       <td><input class="name"></td>
-      <td><input class="tm st"> <button class="setA" title="Başlangıcı şimdiki ana al">⇤</button></td>
-      <td><input class="tm en"> <button class="setB" title="Bitişi şimdiki ana al">⇥</button></td>
+      <td><input class="tm st"> <button class="setA" title="${esc(T("cut.setStart"))}">⇤</button></td>
+      <td><input class="tm en"> <button class="setB" title="${esc(T("cut.setEnd"))}">⇥</button></td>
       <td class="mono">${fmt(c.end - c.start)}</td>
-      <td><span class="badge ${c.regions ? "own" : ""}">${c.regions ? "özel" : "ortak"}</span> <span class="badge">${segN} altyazı</span></td>
+      <td><span class="badge ${c.regions ? "own" : ""}">${esc(T(c.regions ? "cut.own" : "cut.shared"))}</span> <span class="badge">${esc(T("cut.captions", { n: segN }))}</span></td>
       <td class="st ${err ? "err" : ""}">${statusHtml(c)}</td>
-      <td><button class="tr" title="Bu klip için whisper">💬</button> <button class="rn" title="Render">🎬</button> <button class="del" title="Sil">✕</button></td>`;
+      <td><button class="tr" title="${esc(T("cut.whisperTitle"))}">💬</button> <button class="rn" title="${esc(T("cut.renderTitle"))}">🎬</button> <button class="del" title="${esc(T("common.delete"))}">✕</button></td>`;
     const q = (s) => tr.querySelector(s);
     q("input.name").value = c.name;
     q("input.st").value = fmt(c.start);
@@ -854,9 +855,9 @@ function renderCutTable() {
     q(".play").onclick = () => playCut(c);
     q("input.name").onchange = (e) => { c.name = e.target.value.trim() || c.name; renderTimeline(); saveState(); };
     const setTime = (key, val) => {
-      if (isNaN(val)) { toast("Geçersiz zaman", true); return renderCutTable(); }
+      if (isNaN(val)) { toast(T("time.invalid"), true); return renderCutTable(); }
       const t = Math.max(0, Math.min(dur(), val));
-      if (key === "start" ? t >= c.end - 0.5 : t <= c.start + 0.5) { toast("Klip en az 0,5 sn olmalı", true); return renderCutTable(); }
+      if (key === "start" ? t >= c.end - 0.5 : t <= c.start + 0.5) { toast(T("cut.minLen"), true); return renderCutTable(); }
       c[key] = +t.toFixed(2);
       cuts.sort((x, y) => x.start - y.start);
       refreshAll(); saveState();
@@ -868,7 +869,7 @@ function renderCutTable() {
     q(".tr").onclick = () => startTranscribe(c);
     q(".rn").onclick = () => startRender(c);
     q(".del").onclick = () => {
-      if (!confirm(`“${c.name}” silinsin mi? (render edilmiş video output klasöründe kalır)`)) return;
+      if (!confirm(T("cut.confirmDelete", { name: c.name }))) return;
       cuts = cuts.filter((x) => x !== c);
       if (selId === c.id) selId = cuts[0]?.id ?? null;
       refreshAll(); saveState();
@@ -877,7 +878,7 @@ function renderCutTable() {
   }
   $("#cutEmpty").classList.toggle("hidden", cuts.length > 0);
   $("#cutTable").classList.toggle("hidden", cuts.length === 0);
-  $("#cutCount").textContent = cuts.length ? `${cuts.length} klip · ${cuts.filter((c) => c.output).length} render edildi` : "";
+  $("#cutCount").textContent = cuts.length ? T("cuts.count", { n: cuts.length, done: cuts.filter((c) => c.output).length }) : "";
   const c = sel();
   $("#pvCutName").textContent = c ? `· ${c.name} (${fmt(c.end - c.start)})` : "";
   $("#renderBtn").disabled = !c; $("#transcribeBtn").disabled = !c;
@@ -907,7 +908,7 @@ async function watchCutJob(kind, cutId, jobId) {
     const r = await pollJob(jobId, update);
     delete cutStatus[cutId][kind];
     const c = cuts.find((x) => x.id === cutId);
-    if (kind === "render" && c) { c.output = r.output; toast(`${c.name} hazır ✓`); }
+    if (kind === "render" && c) { c.output = r.output; toast(T("cut.ready", { name: c.name })); }
     if (kind === "transcribe") {
       // Server merged the new captions into the source timeline; keep local edits elsewhere.
       const a = c ? c.start : -Infinity, b = c ? c.end : Infinity;
@@ -915,9 +916,9 @@ async function watchCutJob(kind, cutId, jobId) {
       pushUndo(); // whisper replaced this cut's captions → Ctrl+Z brings the old ones back
       segments = segments.filter((s) => s.end <= a || s.start >= b).concat(fresh).sort((x, y) => x.start - y.start);
       saveState(); // an autosave during the job may have sent the old list — push the merged one
-      if (cutId === selId) setProgress($("#trProgress"), 1, `${r.added} altyazı satırı oluşturuldu ✓ — kontrol edip düzeltin`);
+      if (cutId === selId) setProgress($("#trProgress"), 1, T("w.done", { n: r.added }));
     }
-    if (kind === "render" && cutId === selId && c) setProgress($("#renderProgress"), 1, `Hazır: ${c.output}`);
+    if (kind === "render" && cutId === selId && c) setProgress($("#renderProgress"), 1, T("render.ready", { file: c.output }));
     refreshAll(); loadRecent();
   } catch (err) {
     refreshAll();
@@ -925,7 +926,7 @@ async function watchCutJob(kind, cutId, jobId) {
 }
 async function startTranscribe(c) {
   const has = segments.some((s) => s.end > c.start && s.start < c.end);
-  if (has && !confirm(`“${c.name}” aralığındaki mevcut altyazılar whisper sonucuyla değiştirilecek. Devam?`)) return;
+  if (has && !confirm(T("w.confirmReplace", { name: c.name }))) return;
   try {
     const r = await api(`/api/clips/${clip.id}/cuts/${c.id}/transcribe`, {
       method: "POST",
@@ -947,7 +948,7 @@ $("#renderAll").onclick = async () => {
   try {
     const r = await api(`/api/clips/${clip.id}/render-all`, { method: "POST", body: statePayload() });
     for (const [cutId, jobId] of Object.entries(r.jobs)) watchCutJob("render", cutId, jobId);
-    toast(`${Object.keys(r.jobs).length} klip sıraya alındı`);
+    toast(T("render.queued", { n: Object.keys(r.jobs).length }));
   } catch (err) { toast(err.message, true); }
 };
 $("#openFolder").onclick = (e) => { e.preventDefault(); api("/api/open-output", { method: "POST", body: {} }); };
@@ -963,11 +964,11 @@ function renderSegTable() {
     const tr = document.createElement("tr");
     tr._seg = s;
     tr.innerHTML = `
-      <td><button title="Buraya git">▶</button></td>
+      <td><button title="${esc(T("seg.goTitle"))}">▶</button></td>
       <td><input class="tm" type="number" step="0.05"></td>
       <td><input class="tm" type="number" step="0.05"></td>
       <td class="grow"><input class="txt"></td>
-      <td><button title="Başlangıcı şimdiki ana al">⇤</button> <button title="Sil">✕</button></td>`;
+      <td><button title="${esc(T("cut.setStart"))}">⇤</button> <button title="${esc(T("common.delete"))}">✕</button></td>`;
     const [go, setNow, del] = tr.querySelectorAll("button");
     const [st, en, tx] = tr.querySelectorAll("input");
     st.value = (s.start - base).toFixed(2); en.value = (s.end - base).toFixed(2); tx.value = s.text;
@@ -981,7 +982,7 @@ function renderSegTable() {
     tx.onfocus = () => { typed = false; if (video.paused) seek(s.start + 0.01); };
     tb.appendChild(tr);
   }
-  $("#segScope").textContent = c ? `· ${c.name} (zamanlar klibin başına göre)` : "· önce bir klip seçin";
+  $("#segScope").textContent = c ? T("seg.scope", { name: c.name }) : T("seg.noCut");
   $("#segEmpty").classList.toggle("hidden", shown.length > 0);
   $("#segTable").classList.toggle("hidden", shown.length === 0);
   lastActiveSeg = null;
@@ -1013,21 +1014,21 @@ function shiftCutSegments(delta) {
     s.end = +Math.max(s.start + 0.05, s.end + delta).toFixed(2);
   }
   changed(true);
-  toast(`Altyazılar ${delta > 0 ? "+" : ""}${delta.toFixed(1)} sn kaydırıldı`);
+  toast(T("seg.shifted", { d: `${delta > 0 ? "+" : ""}${delta.toFixed(1)}` }));
 }
 $("#shiftBack").onclick = () => shiftCutSegments(-0.1);
 $("#shiftFwd").onclick = () => shiftCutSegments(0.1);
 $("#savePrompt").onclick = async () => {
   if (!clip) return;
   await api("/api/presets", { method: "POST", body: { channel: clip.channel, preset: { prompt: $("#wPrompt").value } } });
-  toast(`İpucu “${clip.channel}” için kaydedildi`);
+  toast(T("prompt.saved", { channel: clip.channel }));
 };
 
 $("#clearSegs").onclick = () => {
   const c = sel();
   if (!c) return;
   const inside = segments.filter((s) => s.end > c.start && s.start < c.end);
-  if (inside.length && confirm(`“${c.name}” aralığındaki ${inside.length} altyazı satırı silinsin mi?`)) {
+  if (inside.length && confirm(T("seg.confirmClear", { name: c.name, n: inside.length }))) {
     pushUndo(); segments = segments.filter((s) => !inside.includes(s)); changed(true);
   }
 };
@@ -1053,12 +1054,23 @@ for (const [s, key, t] of styleFields) {
 $("#saveStyle").onclick = async () => {
   await api("/api/style", { method: "POST", body: style });
   defaultStyle = { ...style };
-  toast("Altyazı stili varsayılan yapıldı");
+  toast(T("style.saved"));
+};
+
+// ---------- UI language ----------
+$("#uiLang").value = LANG;
+$("#uiLang").onchange = (e) => {
+  setUiLang(e.target.value);
+  loadStatus().catch(() => {}); // model labels come from the server in the UI language
+  loadRecent().catch(() => {});
+  updateSizeHint();
+  if (clip) refreshAll();
 };
 
 // ---------- init ----------
 (async () => {
-  try { await loadStatus(); } catch (e) { toast("Sunucuya bağlanılamadı", true); }
+  applyI18n();
+  try { await loadStatus(); } catch (e) { toast(T("server.unreachable"), true); }
   updateSizeHint();
   loadRecent();
   const m = location.hash.match(/clip=([a-f0-9]{12})/);

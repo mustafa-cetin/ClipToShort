@@ -1,4 +1,5 @@
 """Background jobs with progress, plus a subprocess runner that streams lines."""
+import contextvars
 import os
 import re
 import subprocess
@@ -6,6 +7,8 @@ import threading
 import traceback
 import uuid
 from typing import Callable
+
+from .i18n import t
 
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -20,7 +23,7 @@ class JobError(Exception):
 def start(kind: str, fn: Callable[[Callable[..., None]], dict | None], clip_id: str | None = None) -> str:
     job_id = uuid.uuid4().hex[:10]
     job = {"id": job_id, "kind": kind, "clip_id": clip_id, "status": "running",
-           "progress": 0.0, "message": "Başlıyor…", "result": None, "error": None, "log": []}
+           "progress": 0.0, "message": t("job_starting"), "result": None, "error": None, "log": []}
     with _lock:
         _jobs[job_id] = job
 
@@ -35,16 +38,18 @@ def start(kind: str, fn: Callable[[Callable[..., None]], dict | None], clip_id: 
         try:
             result = fn(report)
             with _lock:
-                job.update(status="done", progress=1.0, result=result, message="Tamamlandı")
+                job.update(status="done", progress=1.0, result=result, message=t("job_done"))
         except JobError as e:
             with _lock:
                 job.update(status="error", error=str(e), message=str(e))
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             with _lock:
-                job.update(status="error", error=f"{type(e).__name__}: {e}", message="Hata")
+                job.update(status="error", error=f"{type(e).__name__}: {e}", message=t("job_error"))
 
-    threading.Thread(target=run, daemon=True).start()
+    # Copy the request's context so t() in the job answers in the caller's UI language.
+    ctx = contextvars.copy_context()
+    threading.Thread(target=ctx.run, args=(run,), daemon=True).start()
     return job_id
 
 
@@ -71,7 +76,7 @@ def run_process(cmd: list[str], on_line: Callable[[str], None] | None = None,
                                 stdin=subprocess.DEVNULL, cwd=cwd,
                                 creationflags=CREATE_NO_WINDOW)
     except FileNotFoundError:
-        raise JobError(f"Program bulunamadı: {cmd[0]}") from None
+        raise JobError(t("program_not_found", cmd=cmd[0])) from None
     tail: list[str] = []
     buf = b""
     assert proc.stdout is not None
@@ -104,8 +109,8 @@ def run_simple(cmd: list[str], cwd: str | None = None, timeout: int = 120) -> st
         r = subprocess.run(cmd, capture_output=True, cwd=cwd, timeout=timeout,
                            stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW)
     except FileNotFoundError:
-        raise JobError(f"Program bulunamadı: {cmd[0]}") from None
+        raise JobError(t("program_not_found", cmd=cmd[0])) from None
     if r.returncode != 0:
         err = r.stderr.decode("utf-8", errors="replace").strip().splitlines()[-5:]
-        raise JobError(f"{os.path.basename(cmd[0])} hata verdi: " + " | ".join(err))
+        raise JobError(t("program_failed", name=os.path.basename(cmd[0]), detail=" | ".join(err)))
     return r.stdout.decode("utf-8", errors="replace")

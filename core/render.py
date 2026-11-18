@@ -6,6 +6,7 @@ import threading
 
 from . import clips, subtitles
 from .config import FONTS_DIR, OUTPUT_DIR
+from .i18n import t
 from .jobs import JobError, run_process
 from .timeparse import fmt_time
 
@@ -136,13 +137,13 @@ def _ffpath(p, cwd) -> str:
     """Relative, forward-slash path → no drive-letter colons to escape in the filtergraph."""
     rel = os.path.relpath(p, cwd).replace("\\", "/")
     if re.search(r"[:,;\[\]' ]", rel):
-        raise JobError(f"Yol filtre için uygun değil: {rel}")
+        raise JobError(t("unsafe_path", path=rel))
     return rel
 
 
 def _safe_name(s: str) -> str:
-    s = re.sub(r"[^\w\-]+", "_", s or "klip", flags=re.UNICODE).strip("_")
-    return s[:40] or "klip"
+    s = re.sub(r"[^\w\-]+", "_", s or "clip", flags=re.UNICODE).strip("_")
+    return s[:40] or "clip"
 
 
 def output_name(clip: dict, cut: dict) -> str:
@@ -155,7 +156,7 @@ def take_ticket() -> int:
 
 
 def render(cfg: dict, clip_id: str, cut_id: str, report, encoder_ok: dict, ticket: int) -> dict:
-    _render_lock.acquire(ticket, on_wait=lambda n: report(0.0, f"Sırada… (önünde {n} render var)"))
+    _render_lock.acquire(ticket, on_wait=lambda n: report(0.0, t("render_queued", n=n)))
     try:
         return _render(cfg, clip_id, cut_id, report, encoder_ok)
     finally:
@@ -166,18 +167,18 @@ def _render(cfg: dict, clip_id: str, cut_id: str, report, encoder_ok: dict) -> d
     clip = clips.load(clip_id)  # fresh state (UI may have edited while we waited)
     cut = clips.find_cut(clip, cut_id) if clip else None
     if cut is None:
-        raise JobError("Kesim bulunamadı (silinmiş olabilir)")
+        raise JobError(t("cut_not_found_deleted"))
     d = clips.clip_dir(clip_id)
     v = clip["video"]
     regions, modes, split = effective_layout(clip, cut)
     if not (regions.get("cam") and regions.get("game")):
-        raise JobError("Kamera ve oyun bölgelerini seçin")
+        raise JobError(t("select_regions"))
     cam = clamp_region(regions["cam"], v["width"], v["height"])
     game = clamp_region(regions["game"], v["width"], v["height"])
     start = max(0.0, float(cut["start"]))
     end = min(float(cut["end"]), v.get("duration") or cut["end"])
     if end - start < 0.5:
-        raise JobError(f"“{cut.get('name')}” çok kısa")
+        raise JobError(t("cut_too_short", name=cut.get("name")))
 
     tag = cut["id"]
     ass_rel = None
@@ -199,10 +200,10 @@ def _render(cfg: dict, clip_id: str, cut_id: str, report, encoder_ok: dict) -> d
     def on_line(line: str):
         if line.startswith("out_time_us="):
             try:
-                t = int(line.split("=", 1)[1]) / 1_000_000
+                sec = int(line.split("=", 1)[1]) / 1_000_000
             except ValueError:
                 return
-            report(min(0.99, t / duration), f"Render ediliyor… %{min(99, t / duration * 100):.0f}")
+            report(min(0.99, sec / duration), t("rendering_pct", pct=f"{min(99, sec / duration * 100):.0f}"))
 
     encoders = []
     if encoder_ok.get("h264_nvenc", False):
@@ -215,14 +216,14 @@ def _render(cfg: dict, clip_id: str, cut_id: str, report, encoder_ok: dict) -> d
         tmp_out.unlink(missing_ok=True)
         cmd = build_render_cmd(cfg["ffmpeg"], clip["source"], start, end, f"filter_{tag}.txt",
                                enc, v.get("has_audio", True), tmp_out.name)
-        report(0.01, f"Render başlıyor ({enc[1]})…")
+        report(0.01, t("render_starting", encoder=enc[1]))
         code, tail = run_process(cmd, on_line, cwd=str(d))
         if code == 0 and tmp_out.exists():
             break
         if enc[1] == "h264_nvenc":
             encoder_ok["h264_nvenc"] = False  # don't retry NVENC this session
     else:
-        raise JobError("Render başarısız: " + " | ".join(tail[-4:]))
+        raise JobError(t("render_failed", detail=" | ".join(tail[-4:])))
 
     OUTPUT_DIR.mkdir(exist_ok=True)
     name = output_name(clip, cut)

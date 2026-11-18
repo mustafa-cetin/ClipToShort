@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 
 from .config import WORK_DIR
+from .i18n import t
 
 _ID = re.compile(r"^[a-f0-9]{12}$")
 _lock = threading.RLock()
@@ -19,7 +20,7 @@ def new_id() -> str:
 
 def clip_dir(clip_id: str) -> Path:
     if not _ID.match(clip_id or ""):
-        raise ValueError("Geçersiz klip id")
+        raise ValueError(t("bad_clip_id"))
     return WORK_DIR / clip_id
 
 
@@ -67,7 +68,7 @@ def new_cut_id() -> str:
 def ensure_cuts(clip: dict) -> dict:
     """Older single-clip records → one cut spanning the whole source."""
     if clip.get("cuts") is None and clip.get("video"):
-        clip["cuts"] = [{"id": new_cut_id(), "name": "Klip 1", "start": 0.0,
+        clip["cuts"] = [{"id": new_cut_id(), "name": t("clip_default_name", n=1), "start": 0.0,
                          "end": round(clip["video"]["duration"], 2),
                          "regions": None, "modes": None, "output": clip.get("output")}]
     return clip

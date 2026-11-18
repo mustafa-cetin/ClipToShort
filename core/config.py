@@ -65,10 +65,16 @@ def save_style(style: dict) -> None:
 
 MODEL_PREFS = ["ggml-large-v3.bin", "ggml-large-v3-q5_0.bin", "ggml-large-v3-turbo.bin",
                "ggml-large-v3-turbo-q5_0.bin", "ggml-medium.bin", "ggml-small.bin", "ggml-base.bin"]
-MODEL_LABELS = {
-    "ggml-large-v3.bin": "large-v3 (en doğru)",
-    "ggml-large-v3-turbo.bin": "large-v3-turbo (hızlı)",
+MODEL_LABELS = {  # file name → i18n message key
+    "ggml-large-v3.bin": "model_large_v3",
+    "ggml-large-v3-turbo.bin": "model_large_v3_turbo",
 }
+
+
+def model_label(model: Path) -> str:
+    from .i18n import t
+    key = MODEL_LABELS.get(model.name)
+    return t(key) if key else model.stem.replace("ggml-", "")
 
 
 def whisper_info(cfg: dict) -> dict:
