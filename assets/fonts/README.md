@@ -1,9 +1,9 @@
-# Fontlar
+# Fonts
 
-Bu klasör altyazı fontları içindir ve **depoya font dosyası eklenmez**.
+This folder is for caption fonts, and **font files are not added to the repository**.
 
-- Varsayılan font **Arial Black**'tir. Microsoft'a aittir ve yeniden dağıtılamaz. Uygulama ilk açılışta
-  onu `C:\Windows\Fonts\ariblk.ttf` konumundan buraya kopyalar.
-- Başka bir font kullanmak için `.ttf`/`.otf` dosyasını buraya koyun ve arayüzde "Font" alanına fontun
-  adını yazın. Açık lisanslı (ör. SIL Open Font License) fontlar önerilir: Montserrat, Anton, Bebas Neue…
-- Türkçe karakterleri (ğ, ş, ı, İ) içeren bir font seçtiğinizden emin olun.
+- The default font is **Arial Black**. It belongs to Microsoft and cannot be redistributed. On first start
+  the app copies it here from `C:\Windows\Fonts\ariblk.ttf`.
+- To use another font, put the `.ttf`/`.otf` file here and type the font's name into the "Font" field in the
+  UI. Openly licensed fonts (e.g. SIL Open Font License) are recommended: Montserrat, Anton, Bebas Neue…
+- Make sure the font contains the Turkish characters (ğ, ş, ı, İ) — most captions are Turkish.

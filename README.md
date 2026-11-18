@@ -1,64 +1,67 @@
-# Kick → TikTok Klip
+# Kick → TikTok Clip
 
-Kick yayın kayıtlarından (VOD) dikey **1080×1920** TikTok/Reels/Shorts klipleri hazırlayan, tamamen
-**yerelde** çalışan bir araç. Üstte yayıncı kamerası, altta oyun görüntüsü, ikisinin birleştiği çizgide
-otomatik (çevrimdışı) altyazı.
+A fully **local** tool that turns Kick stream recordings (VODs) into vertical **1080×1920**
+TikTok/Reels/Shorts clips: streamer camera on top, gameplay below, and automatic (offline) captions on
+the line where the two meet.
 
-> **English:** A local, offline tool that turns Kick VODs into vertical 1080×1920 clips — streamer cam on
-> top, gameplay below, burned-in captions on the seam. Python + Flask UI in the browser, FFmpeg for
-> rendering, yt-dlp for downloading, whisper.cpp (offline) for Turkish/English captions. Windows-first.
+The interface is in English by default and can be switched to Turkish from the top-right corner.
+Captions are tuned for **Turkish** speech (the default transcription language); English and automatic
+language detection are also available.
 
-## Özellikler
+## Features
 
-- **Kaynak indirme:** VOD'un sadece istediğin aralığı iner (yeniden kodlamadan, hızlı). Boş başlangıç/bitiş = VOD'un başı/sonu.
-- **Bir kaynaktan çok klip:** zaman çizelgesinde **I** / **O** / **N** ile istediğin kadar klip işaretle, tek tek ya da hepsini sırayla render et.
-- **Bölge seçimi:** kamera ve oyun alanını fareyle çiz; *bulanık dolgu* ya da *doldur (kırp)*. Bölgeler ortak, gerekirse klibe özel. Yayıncı başına kaydedilir.
-- **Ayarlanabilir düzen:** kamera/oyun oranı %20–%80 (kaydırıcı ya da önizlemede çizgiyi sürükleyerek).
-- **Canlı 9:16 önizleme** ve milisaniye hassasiyetinde oynatıcı çubuğu (tek kare adım, 0,25×/0,5× hız).
-- **Çevrimdışı altyazı:** whisper.cpp (large-v3 / turbo), Silero VAD ile sadece konuşma bölümleri, DTW ile kelime zamanlaması, halüsinasyon filtresi, yayıncı başına ipucu metni.
-- **Altyazı düzenleme:** tablo + oynatıcı çubuğunda blokları sürükleyerek zamanlama (mıknatıs, Ctrl+Z).
-- **Render:** FFmpeg; NVIDIA NVENC varsa otomatik kullanılır, yoksa libx264.
+- **Source download:** only the range you need is downloaded from the VOD (no re-encoding, fast). Empty start/end = start/end of the VOD.
+- **Many clips from one source:** mark as many clips as you like on the timeline with **I** / **O** / **N**, render them one by one or all in sequence.
+- **Region selection:** draw the camera and game areas with the mouse; *blurred fill* or *fill (crop)*. Regions are shared, or specific to one clip when needed. Saved per streamer.
+- **Adjustable layout:** camera/game ratio 20 %–80 % (slider, or drag the seam in the preview).
+- **Live 9:16 preview** and a millisecond-accurate player bar (single-frame steps, 0.25×/0.5× speed).
+- **Offline captions:** whisper.cpp (large-v3 / turbo), speech-only sections via Silero VAD, word timing via DTW, hallucination filter, per-streamer hint text.
+- **Caption editing:** table + drag blocks on the player bar to adjust timing (magnet, Ctrl+Z).
+- **Render:** FFmpeg; NVIDIA NVENC is used automatically when available, otherwise libx264.
 
-## Gereksinimler
+## Requirements
 
 | | |
 |---|---|
-| İşletim sistemi | Windows 10/11 (başka sistemler için `scripts/setup_whisper.ps1` ve font kopyalama uyarlanmalı) |
+| Operating system | Windows 10/11 (other systems need `scripts/setup_whisper.ps1` and the font copy adapted) |
 | Python | 3.10+ |
-| [FFmpeg](https://ffmpeg.org/) | `ffmpeg` ve `ffprobe` PATH'te (libass içeren bir derleme, ör. gyan.dev "essentials") |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | PATH'te |
-| GPU (opsiyonel) | NVIDIA + CUDA 12 uyumlu sürücü → whisper ve render hızlanır |
-| Disk | whisper modelleri ~4,7 GB; 1080p60 kaynak ~2,7 GB/saat |
+| [FFmpeg](https://ffmpeg.org/) | `ffmpeg` and `ffprobe` on PATH (a build with libass, e.g. gyan.dev "essentials") |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | on PATH |
+| GPU (optional) | NVIDIA + CUDA 12 compatible driver → faster whisper and render |
+| Disk | whisper models ~4.7 GB; 1080p60 source ~2.7 GB/hour |
 
-## Kurulum
+## Installation
 
 ```bat
-git clone <bu-depo>
+git clone <this-repo>
 cd tiktok-video-maker
 powershell -ExecutionPolicy Bypass -File scripts\setup_whisper.ps1
 start.bat
 ```
 
-- `setup_whisper.ps1`, whisper.cpp'nin CUDA ve CPU sürümlerini, `ggml-large-v3.bin` (en doğru, ~3,1 GB),
-  `ggml-large-v3-turbo.bin` (hızlı, ~1,6 GB) ve Silero VAD modelini `tools\whisper\` altına indirir.
-  Sadece birini istersen: `-Models ggml-large-v3-turbo.bin`.
-- `start.bat` ilk çalıştırmada `.venv` oluşturup bağımlılıkları kurar, ardından tarayıcıda
-  `http://127.0.0.1:5000` adresini açar. Port: `PORT` ortam değişkeni.
+- `setup_whisper.ps1` downloads the CUDA and CPU builds of whisper.cpp, `ggml-large-v3.bin` (most accurate,
+  ~3.1 GB), `ggml-large-v3-turbo.bin` (fast, ~1.6 GB) and the Silero VAD model into `tools\whisper\`.
+  To get only one model: `-Models ggml-large-v3-turbo.bin`.
+- On first run `start.bat` creates `.venv` and installs the dependencies, then opens
+  `http://127.0.0.1:5000` in the browser. Port: `PORT` environment variable.
 
-## Kullanım
+## Usage
 
-1. **Kaynak indir:** VOD linki + aralık (`1:23:10`, `83:10`, `4990`, `1h23m10s`; bitiş `+30m` = 30 dk).
-2. **Bölgeler:** *Kamera* / *Oyun* seçip videonun üzerinde dikdörtgen çiz; sığdırma modunu ve düzen oranını ayarla.
-3. **Klipler:** oynatıcıda **I** giriş, **O** çıkış, **N** klip ekle.
-4. **Altyazı:** klip seçiliyken *Bu klip için Whisper*; tablodan ya da çubukta sürükleyerek düzelt.
-5. **Render:** *Render bu klip* veya *Tümünü render et* → `output\<kanal>_<VOD-saati>_<klip>.mp4`.
+1. **Download a source:** VOD link + range (`1:23:10`, `83:10`, `4990`, `1h23m10s`; end `+30m` = 30 min).
+2. **Regions:** pick *Camera* / *Game* and draw a rectangle on the video; set the fit mode and layout ratio.
+3. **Clips:** in the player, **I** sets the in point, **O** the out point, **N** adds a clip.
+4. **Captions:** with a clip selected, *Whisper for this clip*; fix the result in the table or by dragging on the bar.
+5. **Render:** *Render this clip* or *Render all* → `output\<channel>_<VOD-time>_<clip>.mp4`.
 
-**Kısayollar:** Boşluk oynat/durdur · ←/→ 1 sn (Shift 5 sn) · `,` / `.` tek kare · Home klip başı ·
-I / O / N · Ctrl+Z altyazı değişikliğini geri al.
+**Shortcuts:** Space play/pause · ←/→ 1 s (Shift 5 s) · `,` / `.` one frame · Home clip start ·
+I / O / N · Ctrl+Z undo caption change.
 
-## Ayarlar (`config.json`, opsiyonel)
+**Interface language:** English / Türkçe selector in the header (remembered in the browser). Server messages
+(progress, errors) follow the same language. The caption *Language* setting is separate and defaults to Turkish.
 
-Proje kökünde `config.json` oluşturarak varsayılanları değiştirebilirsin (dosya git'e eklenmez):
+## Settings (`config.json`, optional)
+
+Create `config.json` in the project root to change the defaults (the file is not committed):
 
 ```json
 {
@@ -74,21 +77,22 @@ Proje kökünde `config.json` oluşturarak varsayılanları değiştirebilirsin 
 }
 ```
 
-Altyazı stili (`style`) arayüzdeki *Varsayılan yap* düğmesiyle kaydedilir. Yayıncı ayarları `presets.json`'da tutulur.
+The caption style (`style`) is saved with the *Make default* button in the UI. Streamer settings are kept
+in `presets.json`.
 
-## Altyazı kalitesi nasıl sağlanıyor
+## How caption quality is achieved
 
-- **Model:** large-v3 varsayılan (Türkçede turbo'dan belirgin şekilde doğru).
-- **VAD:** Silero ile konuşma bölümleri bulunur, whisper'a yalnızca onlar art arda verilir; zamanlar orijinal
-  videoya geri çevrilir. (whisper-cli'nin kendi `--vad` seçeneği DTW zamanlarını geri çevirmediği için kullanılmaz.)
-- **DTW** token zamanları → kelimeler konuşulduğu ana oturur.
-- **İpucu metni** (`--prompt`); Windows'ta Türkçe karakterlerin whisper-cli'ye bozulmadan ulaşması için özel kodlanır.
-- Ses ön işleme, tekrar döngüsü ve bilinen halüsinasyon cümlesi ("Altyazı M.K." vb.) filtresi.
+- **Model:** large-v3 by default (noticeably more accurate than turbo for Turkish).
+- **VAD:** Silero finds the speech sections and only those are fed to whisper, back to back; times are mapped
+  back to the original video. (whisper-cli's own `--vad` option is not used because it doesn't map DTW times back.)
+- **DTW** token timestamps → words land on the moment they are spoken.
+- **Hint text** (`--prompt`); specially encoded on Windows so Turkish characters reach whisper-cli intact.
+- Audio pre-processing, repetition-loop removal and a filter for known hallucination phrases ("Altyazı M.K." etc.).
 
-**Bilinen sınır:** oyunun kendi seslendirmesi yayıncının sesiyle aynı kanalda olduğundan, onu da konuşma olarak
-algılayabilir. Bu satırlar tablodan ya da çubuktan silinebilir.
+**Known limitation:** the game's own voice-over is on the same audio track as the streamer, so it may also be
+detected as speech. Those lines can be deleted from the table or the bar.
 
-## Geliştirme
+## Development
 
 ```bat
 python -m venv .venv
@@ -96,39 +100,40 @@ python -m venv .venv
 .venv\Scripts\python -m pytest
 ```
 
-| Yol | İçerik |
+| Path | Contents |
 |---|---|
-| `app.py` | Flask sunucusu ve API |
-| `core/downloader.py` | yt-dlp ile aralık indirme, ffprobe |
-| `core/render.py` | FFmpeg filtre grafiği, kesim render'ı, render kuyruğu |
-| `core/transcribe.py` | whisper.cpp, VAD, DTW, halüsinasyon filtresi |
-| `core/subtitles.py` | ASS altyazı üretimi |
-| `core/clips.py`, `core/jobs.py` | kaynak/klip durumu (`work/<id>/clip.json`), arka plan işleri |
-| `static/` | arayüz (bağımlılıksız HTML/CSS/JS) |
-| `scripts/setup_whisper.ps1` | whisper.cpp ve modellerin kurulumu |
+| `app.py` | Flask server and API |
+| `core/downloader.py` | range download with yt-dlp, ffprobe |
+| `core/render.py` | FFmpeg filtergraph, cut render, render queue |
+| `core/transcribe.py` | whisper.cpp, VAD, DTW, hallucination filter |
+| `core/subtitles.py` | ASS caption generation |
+| `core/clips.py`, `core/jobs.py` | source/clip state (`work/<id>/clip.json`), background jobs |
+| `core/i18n.py` | server messages (English / Turkish) |
+| `static/` | UI (dependency-free HTML/CSS/JS); UI strings in `static/i18n.js` |
+| `scripts/setup_whisper.ps1` | installs whisper.cpp and the models |
 
-Katkı için bkz. [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 
-## Üçüncü taraf bileşenler
+## Third-party components
 
-Bu depo aşağıdakileri **içermez**; kullanıcı kendisi kurar ya da kurulum script'i indirir.
+This repository does **not** include the following; the user installs them or the setup script downloads them.
 
-| Bileşen | Lisans |
+| Component | License |
 |---|---|
-| [FFmpeg](https://ffmpeg.org/legal.html) | LGPL/GPL (derlemeye göre) |
+| [FFmpeg](https://ffmpeg.org/legal.html) | LGPL/GPL (depending on the build) |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Unlicense |
 | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | MIT |
-| [OpenAI Whisper model ağırlıkları](https://github.com/openai/whisper) | MIT |
+| [OpenAI Whisper model weights](https://github.com/openai/whisper) | MIT |
 | [Silero VAD](https://github.com/snakers4/silero-vad) | MIT |
 | [Flask](https://flask.palletsprojects.com/) | BSD-3-Clause |
-| Arial Black fontu | Microsoft'a ait — depoya eklenmez, yerel Windows kurulumundan kopyalanır |
+| Arial Black font | Owned by Microsoft — not added to the repo, copied from the local Windows installation |
 
-## Yasal not
+## Legal notice
 
-Bu araç yalnızca indirme ve düzenleme işlemini yerel bilgisayarında yapar. İndirdiğin ve paylaştığın
-içeriklerin haklarından, ilgili platformların (Kick, TikTok vb.) kullanım koşullarına uymaktan ve
-yayıncıların izinlerinden **kullanıcı sorumludur**. Başkasına ait yayınları paylaşmadan önce izin al.
+This tool only downloads and edits on your own computer. **You are responsible** for the rights to the
+content you download and share, for following the terms of the platforms involved (Kick, TikTok, etc.), and
+for getting the streamers' permission. Ask for permission before sharing someone else's streams.
 
-## Lisans
+## License
 
 [MIT](LICENSE) © 2026 tiktok-video-maker contributors
