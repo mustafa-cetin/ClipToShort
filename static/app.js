@@ -272,7 +272,7 @@ const saveState = debounce(() => {
 }, 600);
 
 function refreshAll() {
-  renderCutTable(); renderTimeline(); renderSegTable(); renderPvSegs(); syncRegionUi(); syncSplitUi(); drawAll();
+  renderCutTable(); renderTimeline(); renderSegTable(); renderCapSegs(); syncRegionUi(); syncSplitUi(); drawAll();
 }
 
 // ---------- source canvas / region editing ----------
@@ -504,7 +504,7 @@ function drawAll() {
   if (cur !== lastActiveSeg) {
     lastActiveSeg = cur;
     $("#segTable tbody").querySelectorAll("tr").forEach((tr) => tr.classList.toggle("active", tr._seg === cur));
-    $("#pvSegs").querySelectorAll(".pvSeg").forEach((el) => el.classList.toggle("on", el._seg === cur));
+    $("#capSegs").querySelectorAll(".pvSeg").forEach((el) => el.classList.toggle("on", el._seg === cur));
   }
 }
 
@@ -533,6 +533,14 @@ function dragSegment(orig, mode, dt, lim) {
 }
 // pure: magnet — snaps t to target when within tol seconds.
 function snap(t, target, tol) { return Math.abs(t - target) <= tol ? target : t; }
+// pure: visible window inside [a, b] for zoom z (0 = all, 1 = ~minSpan s), centered on t and clamped.
+function zoomWindow(t, a, b, z, minSpan) {
+  const full = b - a;
+  if (!(full > 0)) return { a, b };
+  const span = full * Math.pow(Math.min(1, minSpan / full), z);
+  const s = Math.max(a, Math.min(b - span, t - span / 2));
+  return { a: s, b: s + span };
+}
 
 // ---------- undo (Ctrl+Z) for caption edits ----------
 const undoStack = [];
@@ -547,8 +555,11 @@ function undo() {
   toast(T("undo.done"));
 }
 
-const SEG_MIN_DUR = 0.15, SNAP_PX = 6, EDGE_PX = 7;
+const SEG_MIN_DUR = 0.15, SNAP_PX = 6, EDGE_PX = 9;
+const CAP_MIN_SPAN = 3; // seconds visible on the caption strip at full zoom
 let segDrag = null;
+let capScrub = false; // scrubbing on the caption strip → keep its window still
+let capView = { a: 0, b: 1 }; // source-time window shown on the wide caption strip
 function segWalls(s) { // neighbours (and the cut) are walls a caption can't cross
   const [a, b] = pvRange();
   const sorted = [...segments].sort((x, y) => x.start - y.start);
@@ -560,10 +571,27 @@ function segWalls(s) { // neighbours (and the cut) are walls a caption can't cro
     minDur: SEG_MIN_DUR,
   };
 }
-function placeSegEl(el, s, a, b) {
+// Recompute the strip's window. It only moves when the playhead nears its edges (page-like),
+// and never while a caption is dragged or the strip is scrubbed. Returns true when it changed.
+function computeCapView(force) {
+  if (!force && (segDrag || capScrub)) return false;
+  const [a, b] = pvRange();
+  const t = video.currentTime;
+  const nv = zoomWindow(t, a, b, +$("#capZoom").value, CAP_MIN_SPAN);
+  const cur = capView, span = nv.b - nv.a;
+  const sameSpan = Math.abs((cur.b - cur.a) - span) < 1e-6 && cur.a >= a - 1e-6 && cur.b <= b + 1e-6;
+  const margin = span * 0.1;
+  if (!force && sameSpan && t >= cur.a + margin && t <= cur.b - margin) return false;
+  if (Math.abs(nv.a - cur.a) < 1e-6 && Math.abs(nv.b - cur.b) < 1e-6) return false;
+  capView = nv;
+  return true;
+}
+function placeSegEl(el, s, v, c0) { // v = visible window, c0 = cut start (labels are cut-relative)
+  const { a, b } = v;
   el.style.left = `${(Math.max(s.start, a) - a) / (b - a) * 100}%`;
-  el.style.width = `${Math.max(0.6, (Math.min(s.end, b) - Math.max(s.start, a)) / (b - a) * 100)}%`;
-  el.title = `${fmtMs(s.start - a)} – ${fmtMs(s.end - a)}: ${s.text}\n${T("seg.barTitle")}`;
+  el.style.width = `${Math.max(0.3, (Math.min(s.end, b) - Math.max(s.start, a)) / (b - a) * 100)}%`;
+  el.firstChild.textContent = s.text;
+  el.title = `${fmtMs(s.start - c0)} – ${fmtMs(s.end - c0)}: ${s.text}\n${T("seg.barTitle")}`;
 }
 function segModeAt(el, clientX) {
   const r = el.getBoundingClientRect();
@@ -571,18 +599,21 @@ function segModeAt(el, clientX) {
   const edge = r.width < EDGE_PX * 3 ? r.width / 3 : EDGE_PX;
   return x <= edge ? "start" : x >= r.width - edge ? "end" : "move";
 }
-function renderPvSegs() {
-  const box = $("#pvSegs");
+function renderCapSegs() {
+  const box = $("#capSegs");
   box.innerHTML = "";
   if (!clip) return;
-  const [a, b] = pvRange();
+  computeCapView();
+  const c0 = pvRange()[0];
+  const v = { ...capView }, { a, b } = v;
   if (b <= a) return;
   for (const s of segments) {
     if (s.end <= a || s.start >= b || !s.text.trim()) continue;
     const el = document.createElement("div");
     el.className = "pvSeg";
     el._seg = s;
-    placeSegEl(el, s, a, b);
+    el.appendChild(document.createElement("span"));
+    placeSegEl(el, s, v, c0);
     el.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
       el.setPointerCapture(e.pointerId);
@@ -599,7 +630,7 @@ function renderPvSegs() {
       const d = segDrag;
       if (!d.moved && Math.abs(e.clientX - d.x0) < 3) return; // still a click
       if (!d.moved) { d.moved = true; pushUndo(); el.classList.add("drag"); video.pause(); }
-      const r = $("#pvBar").getBoundingClientRect();
+      const r = $("#capBar").getBoundingClientRect();
       const secPerPx = (b - a) / r.width;
       let dt = (e.clientX - d.x0) * secPerPx;
       // Magnet: the dragged edge (or, when moving, either edge) sticks to the playhead.
@@ -608,14 +639,14 @@ function renderPvSegs() {
       else if (d.mode !== "start" && snap(d.orig.end + dt, head, tol) === head) dt = head - d.orig.end;
       const nv = dragSegment(d.orig, d.mode, dt, d.walls);
       s.start = nv.start; s.end = nv.end;
-      placeSegEl(el, s, a, b);
-      const hv = $("#pvHover");
+      placeSegEl(el, s, v, c0);
+      const hv = $("#capHover");
       const edgeT = d.mode === "end" ? s.end : s.start;
-      const x = (edgeT - a) / (b - a) * r.width;
+      const x = Math.max(0, Math.min(r.width, (edgeT - a) / (b - a) * r.width));
       hv.classList.remove("hidden");
       hv.classList.toggle("flip", x > r.width * 0.6);
       hv.style.left = `${x}px`;
-      hv.innerHTML = `<span>${fmtMs(s.start - a)} – ${fmtMs(s.end - a)}</span>`;
+      hv.innerHTML = `<span>${fmtMs(s.start - c0)} – ${fmtMs(s.end - c0)}</span>`;
       // Show the frame at the edge being placed (start edge when moving).
       const target = d.mode === "end" ? s.end - 0.001 : s.start + 0.001;
       if (Math.abs(video.currentTime - target) > frame() / 2 && d.mode !== "move") seek(target);
@@ -626,7 +657,7 @@ function renderPvSegs() {
       segDrag = null;
       if (!d || d.el !== el) return;
       el.classList.remove("drag");
-      $("#pvHover").classList.add("hidden");
+      $("#capHover").classList.add("hidden");
       if (d.moved) { changed(true); return; }
       seek(s.start + 0.001); // plain click → jump there and reveal its table row
       const tr = [...$("#segTable tbody").children].find((row) => row._seg === s);
@@ -644,33 +675,52 @@ function updatePvPlayer() {
   $("#pvDur").textContent = `/ ${fmtMs(b - a)}`;
   $("#pvA").textContent = sel() ? T("pv.clipStart") : fmt(a);
   $("#pvB").textContent = sel() ? fmtMs(b - a) : fmt(b);
+  if (computeCapView()) renderCapSegs();
+  const v = capView;
+  $("#capHead").style.left = `${v.b > v.a ? Math.max(0, Math.min(1, (t - v.a) / (v.b - v.a))) * 100 : 0}%`;
+  $("#capA").textContent = fmtMs(Math.max(0, v.a - a));
+  $("#capB").textContent = fmtMs(Math.max(0, v.b - a));
 }
-let pvDrag = false;
-function pvSeekFromEvent(e) {
-  const r = $("#pvBar").getBoundingClientRect();
-  const [a, b] = pvRange();
-  seek(barTimeAt(e.clientX - r.left, r.width, a, b));
+// Click / drag on a bar seeks; hovering shows the time (relative to the cut start).
+function bindScrubBar(bar, hover, range, onScrub = () => {}) {
+  let drag = false;
+  const at = (e) => {
+    const r = bar.getBoundingClientRect();
+    const [a, b] = range();
+    const x = Math.max(0, Math.min(r.width, e.clientX - r.left));
+    return { x, w: r.width, t: barTimeAt(x, r.width, a, b) };
+  };
+  bar.addEventListener("pointerdown", (e) => {
+    if (!clip) return;
+    drag = true; onScrub(true);
+    bar.setPointerCapture(e.pointerId);
+    seek(at(e).t);
+  });
+  bar.addEventListener("pointermove", (e) => {
+    if (!clip || segDrag) return; // a caption drag owns the balloon
+    const p = at(e);
+    hover.classList.remove("hidden");
+    hover.classList.toggle("flip", p.x > p.w * 0.7);
+    hover.style.left = `${p.x}px`;
+    hover.innerHTML = `<span>${fmtMs(p.t - pvRange()[0])}</span>`;
+    if (drag) seek(p.t);
+  });
+  const end = () => { drag = false; onScrub(false); };
+  bar.addEventListener("pointerup", end);
+  bar.addEventListener("pointercancel", end);
+  bar.addEventListener("pointerleave", () => { if (!drag) hover.classList.add("hidden"); });
 }
-$("#pvBar").addEventListener("pointerdown", (e) => {
-  if (!clip) return;
-  pvDrag = true;
-  $("#pvBar").setPointerCapture(e.pointerId);
-  pvSeekFromEvent(e);
-});
-$("#pvBar").addEventListener("pointermove", (e) => {
-  if (!clip || segDrag) return; // a caption drag owns the balloon
-  const r = $("#pvBar").getBoundingClientRect();
-  const [a, b] = pvRange();
-  const x = Math.max(0, Math.min(r.width, e.clientX - r.left));
-  const hv = $("#pvHover");
-  hv.classList.remove("hidden");
-  hv.classList.toggle("flip", x > r.width * 0.7);
-  hv.style.left = `${x}px`;
-  hv.innerHTML = `<span>${fmtMs(barTimeAt(x, r.width, a, b) - a)}</span>`;
-  if (pvDrag) pvSeekFromEvent(e);
-});
-$("#pvBar").addEventListener("pointerup", () => { pvDrag = false; });
-$("#pvBar").addEventListener("pointerleave", () => { if (!pvDrag) $("#pvHover").classList.add("hidden"); });
+bindScrubBar($("#pvBar"), $("#pvHover"), pvRange);
+bindScrubBar($("#capBar"), $("#capHover"), () => [capView.a, capView.b], (on) => { capScrub = on; });
+function onCapZoom() { computeCapView(true); renderCapSegs(); updatePvPlayer(); }
+$("#capZoom").addEventListener("input", onCapZoom);
+$("#capBar").addEventListener("wheel", (e) => { // Ctrl+wheel zooms the caption strip
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  const z = $("#capZoom");
+  z.value = Math.max(0, Math.min(1, +z.value + (e.deltaY < 0 ? 0.05 : -0.05)));
+  onCapZoom();
+}, { passive: false });
 
 // Play from wherever the playhead is; with a cut selected, stop at the cut's end.
 function togglePlay() {
@@ -708,7 +758,7 @@ function loop() {
 }
 
 // ---------- player ----------
-video.addEventListener("loadeddata", () => { video.playbackRate = +$("#pvRate").value; renderTimeline(); renderPvSegs(); drawAll(); });
+video.addEventListener("loadeddata", () => { video.playbackRate = +$("#pvRate").value; renderTimeline(); renderCapSegs(); drawAll(); });
 video.addEventListener("seeked", drawAll);
 video.addEventListener("play", () => { $("#playBtn").textContent = $("#pvPlay").textContent = "❚❚"; requestAnimationFrame(loop); });
 video.addEventListener("pause", () => { $("#playBtn").textContent = $("#pvPlay").textContent = "▶"; drawAll(); });
@@ -738,11 +788,7 @@ document.addEventListener("keydown", (e) => {
 // ---------- timeline (with zoom around the playhead) ----------
 let view = { a: 0, b: 1 };
 function computeView() {
-  const d = dur() || 1;
-  const span = d * Math.pow(Math.min(1, 20 / d), +$("#zoom").value); // zoom 1 → ~20 s window
-  let a = video.currentTime - span / 2;
-  a = Math.max(0, Math.min(d - span, a));
-  view = { a, b: a + span };
+  view = zoomWindow(video.currentTime, 0, dur() || 1, +$("#zoom").value, 20); // zoom 1 → ~20 s window
 }
 const pct = (t) => ((t - view.a) / (view.b - view.a)) * 100;
 function renderTimeline() {
@@ -989,7 +1035,7 @@ function renderSegTable() {
 }
 function changed(rerender) {
   if (rerender) { segments.sort((a, b) => a.start - b.start); renderSegTable(); renderCutTable(); }
-  renderPvSegs(); drawAll(); saveState();
+  renderCapSegs(); drawAll(); saveState();
 }
 $("#addSeg").onclick = () => {
   const c = sel();

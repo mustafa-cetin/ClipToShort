@@ -113,15 +113,14 @@ button.primary kbd { color: inherit; border-color: currentColor; }
 /* ---- precise player under the preview ---- */
 #pvPlayer { margin-top: 10px; width: 100%; max-width: 360px; align-self: center; }
 #pvBar { position: relative; height: 34px; background: #0b0d11; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; touch-action: none; user-select: none; overflow: hidden; }
-#pvSegs { position: absolute; inset: 0; }
 .pvSeg { position: absolute; top: 9px; bottom: 9px; background: #3a4560; border-radius: 3px; }
 .pvSeg:hover { background: #5a6c96; }
 .pvSeg.on { background: var(--accent); }
-#pvHead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #ff4d4d; pointer-events: none; }
-#pvHead::before { content: ""; position: absolute; top: -1px; left: -4px; border: 5px solid transparent; border-top-color: #ff4d4d; }
-#pvHover { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.5); pointer-events: none; }
-#pvHover span { position: absolute; bottom: 2px; left: 4px; font: 11px ui-monospace, Consolas, monospace; background: #000c; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
-#pvHover.flip span { left: auto; right: 4px; }
+#pvHead, #capHead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #ff4d4d; pointer-events: none; z-index: 3; }
+#pvHead::before, #capHead::before { content: ""; position: absolute; top: -1px; left: -4px; border: 5px solid transparent; border-top-color: #ff4d4d; }
+#pvHover, #capHover { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.5); pointer-events: none; z-index: 3; }
+#pvHover span, #capHover span { position: absolute; bottom: 2px; left: 4px; font: 11px ui-monospace, Consolas, monospace; background: #000c; padding: 0 4px; border-radius: 3px; white-space: nowrap; }
+#pvHover.flip span, #capHover.flip span { left: auto; right: 4px; }
 .pvTimes { display: flex; justify-content: space-between; margin-top: 2px; }
 .pvCtl { display: flex; gap: 6px; justify-content: center; align-items: center; margin-top: 8px; flex-wrap: wrap; }
 .pvCtl button { padding: 5px 8px; min-width: 36px; }
@@ -137,9 +136,14 @@ button.primary kbd { color: inherit; border-color: currentColor; }
 .splitBtns button.on { background: #3a4252; border-color: #556; }
 #previewCanvas.seam { cursor: ns-resize; }
 
-/* ---- draggable caption blocks on the player bar ---- */
-#pvBar { height: 44px; }
-.pvSeg { top: 7px; bottom: 7px; border: 1px solid #5a6c96; touch-action: none; }
+/* ---- wide caption strip: draggable caption blocks ---- */
+#capStrip { margin-bottom: 16px; }
+#capBar { position: relative; height: 64px; margin-top: 8px; background: #0b0d11; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; touch-action: none; user-select: none; overflow: hidden; }
+#capSegs { position: absolute; inset: 0; }
+#capZoom { width: 160px; }
+.pvSeg { top: 10px; bottom: 18px; border: 1px solid #5a6c96; touch-action: none; display: flex; align-items: center; overflow: hidden; }
+.pvSeg span { flex: 1; min-width: 0; padding: 0 7px; font-size: 12px; color: #e7e9ee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.pvSeg.on span, .pvSeg.drag span { color: var(--accent-text); font-weight: 600; }
 .pvSeg::before, .pvSeg::after { content: ""; position: absolute; top: 3px; bottom: 3px; width: 2px; background: rgba(255,255,255,.35); border-radius: 1px; }
 .pvSeg::before { left: 2px; }
 .pvSeg::after { right: 2px; }
